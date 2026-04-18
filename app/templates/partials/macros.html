@@ -1,0 +1,33 @@
+{% macro nav_link(label, href, active=False, mark="SN", sublabel="") -%}
+<a class="nav-link{% if active %} is-active{% endif %}" href="{{ href|default('#') }}">
+  <span class="nav-mark">{{ mark }}</span>
+  <span class="nav-label">
+    <strong>{{ label }}</strong>
+    {% if sublabel %}<span>{{ sublabel }}</span>{% endif %}
+  </span>
+</a>
+{%- endmacro %}
+
+{% macro badge(label, tone="neutral") -%}
+<span class="badge badge-{{ tone }}">{{ label }}</span>
+{%- endmacro %}
+
+{% macro stat_card(label, value, note="", tone="neutral") -%}
+<article class="metric">
+  <p class="metric-label">{{ label }}</p>
+  <h3 class="metric-value{% if tone == 'accent' %} metric-accent{% endif %}">{{ value }}</h3>
+  {% if note %}<p class="metric-note">{{ note }}</p>{% endif %}
+</article>
+{%- endmacro %}
+
+{% macro empty_state(title, body, action_label="", action_href="#") -%}
+<section class="empty-state">
+  <h3>{{ title }}</h3>
+  <p>{{ body }}</p>
+  {% if action_label %}<a class="btn btn-primary" href="{{ action_href|default('#') }}">{{ action_label }}</a>{% endif %}
+</section>
+{%- endmacro %}
+
+{% macro template_token(token) -%}
+<span class="template-token">{{ token }}</span>
+{%- endmacro %}

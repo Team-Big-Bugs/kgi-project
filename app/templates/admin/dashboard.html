@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import stat_card, badge, empty_state %}
+{% set nav_mode = "admin" %}
+{% set current_page = "admin_dashboard" %}
+{% set page_title = page_title|default("Admin Dashboard") %}
+{% set page_subtitle = page_subtitle|default("Queue health, template coverage, and scheduler status.") %}
+
+{% block content %}
+<section class="hero">
+  <div class="stack">
+    <p class="eyebrow">Admin overview</p>
+    <h2 class="page-title">Keep the engine calm, timely, and visible.</h2>
+    <p class="page-subtitle">A trainer or operator should be able to see the state of the queue, templates, and channel coverage in a few seconds.</p>
+    <div class="cluster">
+      {{ badge(queue_state|default("Queue healthy"), "success") }}
+      {{ badge(env_label|default("Railway + Supabase"), "soft") }}
+      {{ badge(last_run_label|default("Cron every 5 min"), "primary") }}
+    </div>
+  </div>
+  <div class="preview-panel">
+    <div class="preview-heading">
+      <strong>Scheduler pulse</strong>
+      {{ badge(system_state|default("Operational"), "success") }}
+    </div>
+    <div class="preview-message">
+      <h3>{{ next_job|default("Due nudges will be scanned in the next cron cycle.") }}</h3>
+      <p>The backend should remain asynchronous and queue-first instead of trying to send notifications inside the request thread.</p>
+    </div>
+  </div>
+</section>
+
+<section class="card-grid">
+  {{ stat_card("Queued", queued_count|default("12"), "Waiting to be sent by the dispatcher.", "accent") }}
+  {{ stat_card("Sent today", sent_count|default("48"), "Delivery activity across push, email, and LINE.") }}
+  {{ stat_card("Opened", opened_count|default("21"), "Tracking tokens converted to opens.", "neutral") }}
+</section>
+
+<section class="section">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">Quick actions</h3>
+      <p class="section-note">These buttons are placeholders that can hook into the final admin routes later.</p>
+    </div>
+  </div>
+  <div class="grid-3">
+    <a class="panel stack" href="{{ templates_url|default('/admin/templates') }}">
+      <strong>Manage templates</strong>
+      <span class="field-hint">Edit trigger types, placeholders, and channel-specific copy.</span>
+    </a>
+    <a class="panel stack" href="{{ dispatches_url|default('/admin/dispatches') }}">
+      <strong>Inspect dispatch logs</strong>
+      <span class="field-hint">Review queue state, failure reasons, and click-through results.</span>
+    </a>
+    <a class="panel stack" href="{{ scheduler_url|default('/admin/scheduler') }}">
+      <strong>Scheduler status</strong>
+      <span class="field-hint">Run a manual scan or confirm the cron health window.</span>
+    </a>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">Operational snapshot</h3>
+      <p class="section-note">This area is designed for the support person who wants a clean, glanceable summary.</p>
+    </div>
+  </div>
+  {% if metrics is defined and metrics %}
+    <div class="card-grid">
+      {% for metric in metrics %}
+        {{ stat_card(metric.label|default("Metric"), metric.value|default("0"), metric.note|default(""), metric.tone|default("neutral")) }}
+      {% endfor %}
+    </div>
+  {% else %}
+    {{ empty_state("No operational data yet", "Seed data or backend integration will populate the admin summary once routes are connected.") }}
+  {% endif %}
+</section>
+{% endblock %}

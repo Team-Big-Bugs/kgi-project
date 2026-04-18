@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge %}
+{% set nav_mode = "agent" %}
+{% set current_page = "assignments" %}
+{% set page_title = page_title|default("Assignment Detail") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">Assignment detail</p>
+    <h2 class="page-title">{{ assignment.module_title }}</h2>
+    <p class="page-subtitle">A focused detail view helps the agent move from the nudge directly into the learning task.</p>
+    <div class="cluster">
+      {{ badge(assignment.task_type, "primary") }}
+      {{ badge(status_label, "soft") }}
+    </div>
+  </div>
+  <div class="panel stack">
+    <strong>Due time</strong>
+    <p>{{ due_at_label }}</p>
+    <form action="/assignments/{{ assignment.id }}/complete" method="post">
+      <button class="btn btn-primary" type="submit">Mark complete</button>
+    </form>
+  </div>
+</section>
+
+<section class="panel stack">
+  <h3 class="section-title">Why this matters</h3>
+  <p class="page-subtitle">This assignment is the payload that the Smart Nudge engine watches for peak-window delivery and spaced repetition follow-up.</p>
+  <div class="page-actions">
+    <a class="btn btn-secondary" href="{{ back_url|default('/assignments') }}">Back to assignments</a>
+    <a class="btn btn-secondary" href="/history">View history</a>
+  </div>
+</section>
+{% endblock %}

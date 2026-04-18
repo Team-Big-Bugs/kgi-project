@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% set nav_mode = "agent" %}
+{% set current_page = "dashboard" %}
+{% set page_title = page_title|default("Page not found") %}
+
+{% block content %}
+<section class="error-layout">
+  <article class="panel error-card stack">
+    <p class="error-code">404</p>
+    <h2 class="page-title">This page took a wrong turn.</h2>
+    <p class="page-subtitle">The route may not exist yet, or the link may be stale. The rest of the app should still feel calm and easy to recover from.</p>
+    <div class="page-actions" style="justify-content:center;">
+      <a class="btn btn-primary" href="{{ dashboard_url|default('/dashboard') }}">Back to dashboard</a>
+      <a class="btn btn-secondary" href="{{ help_url|default('#') }}">Need help?</a>
+    </div>
+  </article>
+</section>
+{% endblock %}

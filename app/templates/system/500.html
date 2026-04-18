@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% set nav_mode = "agent" %}
+{% set current_page = "dashboard" %}
+{% set page_title = page_title|default("Unexpected error") %}
+
+{% block content %}
+<section class="error-layout">
+  <article class="panel error-card stack">
+    <p class="error-code">500</p>
+    <h2 class="page-title">Something went wrong while preparing the nudge.</h2>
+    <p class="page-subtitle">Please try again in a moment. If the issue repeats, the channel setup or scheduler state may need a quick check.</p>
+    <div class="alert alert-error">
+      <h3>Recovery tip</h3>
+      <p>Switch to Email or revisit Preferences if a richer channel is temporarily unavailable.</p>
+    </div>
+    <div class="page-actions" style="justify-content:center;">
+      <a class="btn btn-primary" href="{{ dashboard_url|default('/dashboard') }}">Retry from dashboard</a>
+      <a class="btn btn-secondary" href="{{ preferences_url|default('/preferences') }}">Open preferences</a>
+    </div>
+  </article>
+</section>
+{% endblock %}

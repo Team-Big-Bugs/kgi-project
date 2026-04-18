@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge %}
+{% set nav_mode = "agent" %}
+{% set current_page = "line_connect" %}
+{% set page_title = page_title|default("LINE Connection") %}
+{% set page_subtitle = page_subtitle|default("Connect the official account and finish one-time linking.") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">LINE integration</p>
+    <h2 class="page-title">Friend first, link second.</h2>
+    <p class="page-subtitle">This flow is designed for Taiwan users: scan the official account QR code, add the bot, then send the one-time code.</p>
+    <div class="cluster">
+      {{ badge(line_status|default("Awaiting link"), "accent") }}
+      {{ badge(webhook_status|default("Webhook ready"), "primary") }}
+    </div>
+  </div>
+
+  <div class="panel stack">
+    <div class="preview-heading">
+      <strong>Link code</strong>
+      <span id="lineLinkStatus" class="status-pill status-neutral">Idle</span>
+    </div>
+    <div class="copy-row">
+      <input id="lineLinkCodeField" class="copy-field" type="text" readonly value="{{ line_link_code|default('NUDGE-4821') }}" data-line-link-code />
+      <button type="button" class="btn btn-secondary" data-copy="#lineLinkCodeField">Copy</button>
+      <button type="button" class="btn btn-primary" data-line-link-refresh data-line-link-endpoint="{{ line_link_refresh_url|default('/line/link/start') }}">Refresh</button>
+    </div>
+    <p class="field-hint" data-line-link-status>The webhook will map the sender’s LINE user ID to the logged-in app account after the code is received.</p>
+  </div>
+</section>
+
+<section class="grid-2">
+  <article class="panel stack">
+    {% if qr_data_uri %}
+    <div class="qr-box">
+      <img src="{{ qr_data_uri }}" alt="LINE official account QR code" class="qr-image" />
+    </div>
+    {% endif %}
+    <h3 class="section-title">Setup steps</h3>
+    <ol class="step-list">
+      <li>Open the official account QR code and add it as a friend.</li>
+      <li>Copy the one-time link code from this screen.</li>
+      <li>Send the code back to the official account and wait for confirmation.</li>
+    </ol>
+    <div class="alert alert-info">
+      <h3>No secrets exposed</h3>
+      <p>Agents do not enter access tokens or internal IDs. The server keeps those values private.</p>
+    </div>
+    <a class="btn btn-secondary" href="{{ official_account_url|default('#') }}" target="_blank" rel="noreferrer">Open official account</a>
+  </article>
+
+  <article class="panel stack">
+    <h3 class="section-title">Webhook events</h3>
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-meta">
+          <strong>Follow event</strong>
+          <span>Friend added</span>
+        </div>
+        <p>We can show a welcome card and confirm the account is ready for linking.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-meta">
+          <strong>Message event</strong>
+          <span>Code received</span>
+        </div>
+        <p>The backend verifies the signature, reads the sender user ID, and consumes the one-time code.</p>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-meta">
+          <strong>Linked</strong>
+          <span>Status updated</span>
+        </div>
+        <p>The Preference Center can then mark LINE as active and use the Messaging API for delivery.</p>
+      </div>
+    </div>
+  </article>
+</section>
+{% endblock %}

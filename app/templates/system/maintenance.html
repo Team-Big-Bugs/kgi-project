@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% set nav_mode = "agent" %}
+{% set current_page = "dashboard" %}
+{% set page_title = page_title|default("Maintenance") %}
+
+{% block content %}
+<section class="error-layout">
+  <article class="panel error-card stack">
+    <p class="eyebrow">System notice</p>
+    <h2 class="page-title">Smart Nudge is taking a short break.</h2>
+    <p class="page-subtitle">The system may be updating templates, syncing queues, or waiting for a scheduler window to resume.</p>
+    <div class="alert alert-warning">
+      <h3>What to expect</h3>
+      <p>Notifications remain queued, and the platform should recover without losing the dispatch history.</p>
+    </div>
+    <div class="page-actions" style="justify-content:center;">
+      <a class="btn btn-primary" href="{{ dashboard_url|default('/dashboard') }}">Check again</a>
+    </div>
+  </article>
+</section>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state %}
+{% set nav_mode = "admin" %}
+{% set current_page = "scheduler" %}
+{% set page_title = page_title|default("Scheduler Monitor") %}
+{% set page_subtitle = page_subtitle|default("Track cron health and run a manual scan when needed.") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">Scheduler monitor</p>
+    <h2 class="page-title">Background jobs should exit cleanly and never block the web thread.</h2>
+    <p class="page-subtitle">This page is for the operator who wants to confirm the 5-minute scan cycle, inspect the last run, and trigger a manual job if necessary.</p>
+  </div>
+  <div class="panel stack">
+    <div class="cluster">
+      {{ badge(cron_state|default("Healthy"), "success") }}
+      {{ badge(runtime_label|default("Railway Cron"), "primary") }}
+    </div>
+    <div class="page-actions">
+      <button class="btn btn-primary" type="button">Run now</button>
+      <a class="btn btn-secondary" href="{{ dispatches_url|default('/admin/dispatches') }}">Dispatch logs</a>
+    </div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <article class="panel stack">
+    <h3 class="section-title">Health checks</h3>
+    <ul class="feature-list">
+      <li>Scheduler scans due assignments and recall items every 5 minutes.</li>
+      <li>DND windows are respected even when they cross midnight.</li>
+      <li>Duplicate sends are avoided with a dedupe key.</li>
+      <li>Failed dispatches capture the channel failure reason for operators.</li>
+    </ul>
+  </article>
+  <article class="panel stack">
+    <h3 class="section-title">Last run</h3>
+    {% if last_runs is defined and last_runs %}
+      <div class="timeline">
+        {% for run in last_runs %}
+        <div class="timeline-item">
+          <div class="timeline-meta">
+            <strong>{{ run.label|default("Cron scan") }}</strong>
+            <span>{{ run.time|default("08:55") }}</span>
+          </div>
+          <p>{{ run.note|default("Scanned pending items and queued a small batch of nudges.") }}</p>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      {{ empty_state("No run history yet", "As soon as the cron job fires, the most recent runs can be shown here.") }}
+    {% endif %}
+  </article>
+</section>
+{% endblock %}

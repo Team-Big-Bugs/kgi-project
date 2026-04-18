@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state %}
+{% set nav_mode = "admin" %}
+{% set current_page = "agents" %}
+{% set page_title = page_title|default("Agent Overview") %}
+{% set page_subtitle = page_subtitle|default("See preferences, linking status, and delivery readiness.") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">Agent registry</p>
+    <h2 class="page-title">Keep channel readiness visible.</h2>
+    <p class="page-subtitle">The admin should be able to spot who is linked, who is opted out, and who still needs setup help.</p>
+  </div>
+  <div class="panel stack">
+    <div class="cluster">
+      {{ badge(linked_label|default("3 linked"), "success") }}
+      {{ badge(unlinked_label|default("1 unlinked"), "warning") }}
+      {{ badge(opt_out_label|default("0 opted out"), "soft") }}
+    </div>
+  </div>
+</section>
+
+{% if agents is defined and agents %}
+  <div class="card-grid">
+    {% for agent in agents %}
+    <article class="panel stack">
+      <div class="log-title">
+        <strong>{{ agent.name|default("Lin") }}</strong>
+        <span class="badge badge-{{ agent.badge_tone|default('primary') }}">{{ agent.channel|default("LINE") }}</span>
+      </div>
+      <p>{{ agent.email|default("lin@example.com") }}</p>
+      <div class="cluster">
+        {{ badge(agent.link_state|default("linked"), "success") }}
+        {{ badge(agent.opt_out_state|default("active"), "soft") }}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+{% else %}
+  {{ empty_state("No agents yet", "Demo seed data will make this grid useful once the database is wired up.") }}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,17 @@
+{
+  "name": "Smart Nudge",
+  "short_name": "Smart Nudge",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#00367B",
+  "description": "Smart Nudge notification engine for bite-sized financial learning.",
+  "icons": [
+    {
+      "src": "/static/icons/smart-nudge.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

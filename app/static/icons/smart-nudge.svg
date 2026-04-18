@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Smart Nudge icon">
+  <defs>
+    <linearGradient id="g" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#00367B"/>
+      <stop offset="100%" stop-color="#0D4E9C"/>
+    </linearGradient>
+    <linearGradient id="a" x1="0%" x2="100%" y1="0%" y2="100%">
+      <stop offset="0%" stop-color="#E83E0B"/>
+      <stop offset="100%" stop-color="#FF6A35"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="#F8FAFC"/>
+  <rect x="28" y="28" width="200" height="200" rx="48" fill="url(#g)"/>
+  <path d="M92 118c0-19.9 16.1-36 36-36s36 16.1 36 36v20l16 22H76l16-22v-20Z" fill="#fff" opacity=".94"/>
+  <path d="M110 160c0 9.9 8.1 18 18 18s18-8.1 18-18" fill="none" stroke="#E83E0B" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="128" cy="78" r="12" fill="url(#a)"/>
+  <path d="M166 70c11 6 18 17 18 30" fill="none" stroke="#A2C0EF" stroke-width="10" stroke-linecap="round" opacity=".9"/>
+  <path d="M178 56c17 9 28 28 28 50" fill="none" stroke="#A2C0EF" stroke-width="8" stroke-linecap="round" opacity=".75"/>
+</svg>

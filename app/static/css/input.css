@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    font-family: "Noto Sans TC", ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .smart-panel {
+    @apply rounded-3xl border border-slate-200 bg-white shadow-soft;
+  }
+}

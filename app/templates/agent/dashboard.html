@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import stat_card, badge, empty_state %}
+{% set nav_mode = "agent" %}
+{% set current_page = "dashboard" %}
+{% set page_title = page_title|default("Agent Dashboard") %}
+{% set page_subtitle = page_subtitle|default("Your next learning nudge is timed for the right window.") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">Agent view</p>
+    <h2 class="page-title">Stay in the flow, not in the noise.</h2>
+    <p class="page-subtitle">
+      Smart Nudge keeps the next module, recall quiz, and preferred channel visible without crowding the day.
+    </p>
+    <div class="cluster">
+      {{ badge(next_peak_window|default("Peak window 09:00"), "primary") }}
+      {{ badge(due_today_label|default("1 due today"), "accent") }}
+      {{ badge(channel_label|default("Push + LINE ready"), "soft") }}
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-primary" href="{{ preferences_url|default('/preferences') }}">Open Preferences</a>
+      <a class="btn btn-secondary" href="{{ assignments_url|default('/assignments') }}">View Assignments</a>
+    </div>
+  </div>
+
+  <div class="preview-panel">
+    <div class="preview-heading">
+      <strong>Lock screen preview</strong>
+      {{ badge(notification_tone|default("Smart nudge"), "neutral") }}
+    </div>
+    <div class="preview-message">
+      <h3>Hey {{ agent_name|default("Lin") }}, your {{ module_title|default("Travel Insurance") }} recall window is opening soon.</h3>
+      <p>Spend 7 minutes before your {{ peak_window|default("09:00") }} learning window closes. Your streak shield is still strong, but the next nudge is close.</p>
+    </div>
+    <div class="cluster">
+      {{ badge(tracking_state|default("Tracked"), "success") }}
+      {{ badge(open_rate_label|default("42% open rate"), "soft") }}
+    </div>
+  </div>
+</section>
+
+<section class="card-grid">
+  {{ stat_card("Due now", due_count|default("1"), "Mandatory module or recall quiz waiting.", "accent") }}
+  {{ stat_card("Peak window", peak_window|default("09:00"), "Smart Nudge checks the 15-minute window.", "neutral") }}
+  {{ stat_card("Preferred channel", preferred_channel|default("LINE"), "Push, email, or LINE can be changed anytime.") }}
+</section>
+
+<section class="section">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">Next actions</h3>
+      <p class="section-note">The app should tell the agent exactly what to do next with a clear path back into learning.</p>
+    </div>
+  </div>
+  <div class="grid-2">
+    <article class="panel stack">
+      <div class="cluster">
+        {{ badge("Recommended", "primary") }}
+        {{ badge("7 minutes", "soft") }}
+      </div>
+      <h4 class="section-title">Travel Insurance refresh</h4>
+      <p class="page-subtitle">A short scenario-based review that reinforces the upcoming spaced repetition checkpoint.</p>
+      <div class="page-actions">
+        <a class="btn btn-primary" href="{{ assignment_url|default('/assignments/1') }}">Open module</a>
+        <a class="btn btn-secondary" href="{{ history_url|default('/history') }}">See past nudges</a>
+      </div>
+    </article>
+
+    <article class="panel stack">
+      <div class="cluster">
+        {{ badge("Channel health", "soft") }}
+        {{ badge(channel_status|default("Ready"), "success") }}
+      </div>
+      <h4 class="section-title">Delivery setup</h4>
+      <ul class="feature-list">
+        <li>Push subscription status can be checked from the preference center.</li>
+        <li>LINE requires friend setup and webhook linking before messages can be sent.</li>
+        <li>Email remains a safe fallback if a richer channel is not available.</li>
+      </ul>
+    </article>
+  </div>
+</section>
+
+<section class="section">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">Upcoming nudges</h3>
+      <p class="section-note">These cards can be filled by the scheduler later. For now they keep the demo story alive.</p>
+    </div>
+  </div>
+  {% if upcoming_nudges is defined and upcoming_nudges %}
+    <div class="timeline">
+      {% for nudge in upcoming_nudges %}
+      <article class="timeline-item">
+        <div class="timeline-meta">
+          <strong>{{ nudge.title|default("Learning nudge") }}</strong>
+          <span>{{ nudge.scheduled_at|default("10:45") }}</span>
+        </div>
+        <p>{{ nudge.description|default("A concise reminder tied to peak learning timing.") }}</p>
+        <div class="cluster">
+          {{ badge(nudge.channel|default("LINE"), "primary") }}
+          {{ badge(nudge.status|default("Queued"), "soft") }}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    {{ empty_state("Nothing queued yet", "Once the scheduler is wired, due modules and recall quizzes will appear here.") }}
+  {% endif %}
+</section>
+{% endblock %}

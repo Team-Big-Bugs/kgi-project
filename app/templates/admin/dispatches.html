@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state %}
+{% set nav_mode = "admin" %}
+{% set current_page = "dispatches" %}
+{% set page_title = page_title|default("Dispatch Queue") %}
+{% set page_subtitle = page_subtitle|default("Queue rows, sent events, and open tracking.") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">Dispatch queue</p>
+    <h2 class="page-title">Asynchronous by design.</h2>
+    <p class="page-subtitle">Notifications should sit in a queue until the scheduler and channel adapter finish their work safely.</p>
+  </div>
+  <div class="panel stack">
+    <div class="cluster">
+      {{ badge(queue_count|default("12 queued"), "accent") }}
+      {{ badge(sent_count|default("48 sent"), "success") }}
+      {{ badge(failed_count|default("1 failed"), "soft") }}
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-primary" href="{{ scheduler_url|default('/admin/scheduler') }}">Run scheduler</a>
+      <a class="btn btn-secondary" href="{{ test_url|default('/admin/test-notification') }}">Send test</a>
+    </div>
+  </div>
+</section>
+
+{% if dispatches is defined and dispatches %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Agent</th>
+          <th>Template</th>
+          <th>Channel</th>
+          <th>Status</th>
+          <th>Sent</th>
+          <th>Opened</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for dispatch in dispatches %}
+        <tr class="table-row-compact">
+          <td>{{ dispatch.agent_name|default("Lin") }}</td>
+          <td>{{ dispatch.template_name|default("Travel Insurance peak nudge") }}</td>
+          <td>{{ dispatch.channel|default("LINE") }}</td>
+          <td><span class="badge badge-{{ dispatch.status_tone|default('neutral') }}">{{ dispatch.status|default("queued") }}</span></td>
+          <td>{{ dispatch.sent_at|default("—") }}</td>
+          <td>{{ dispatch.opened_at|default("—") }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  {{ empty_state("No dispatches yet", "The queue table will fill as soon as the background worker starts scanning due records.") }}
+{% endif %}
+{% endblock %}

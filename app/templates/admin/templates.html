@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, template_token %}
+{% set nav_mode = "admin" %}
+{% set current_page = "templates" %}
+{% set page_title = page_title|default("Template Builder") %}
+{% set page_subtitle = page_subtitle|default("Create reusable nudges with simple placeholders.") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">Admin template builder</p>
+    <h2 class="page-title">Write once, fill many.</h2>
+    <p class="page-subtitle">The trainer can define a message dictionary and preview the final nudge with live placeholder values.</p>
+    <div class="cluster">
+      {{ badge(trigger_type|default("bio_rhythm_peak"), "primary") }}
+      {{ badge(channel_type|default("LINE"), "accent") }}
+    </div>
+  </div>
+  <div class="preview-panel" data-preview-root>
+    <div class="preview-heading">
+      <strong>Rendered preview</strong>
+      <span class="status-pill status-neutral">Live</span>
+    </div>
+    <div class="preview-message">
+      <h3>Hey <span data-preview-agent-name>{{ agent_name|default("Lin") }}</span>, your <span data-preview-module-title>{{ module_title|default("Travel Insurance") }}</span> reminder is ready.</h3>
+      <p>Spend 7 minutes before your <span data-preview-peak-window>{{ peak_learning_time|default("09:00") }}</span> window closes. Channel: <span data-preview-channel>{{ channel_type|default("LINE") }}</span>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <form class="panel stack" action="{{ template_save_url|default('/admin/templates') }}" method="post">
+    <div class="field">
+      <label for="trigger_type">Trigger type</label>
+      <select id="trigger_type" name="trigger_type" class="select">
+        <option value="bio_rhythm_peak">bio_rhythm_peak</option>
+        <option value="streak_warning">streak_warning</option>
+        <option value="spaced_repetition_due">spaced_repetition_due</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="channel_type">Channel type</label>
+      <select id="channel_type" name="channel_type" class="select" data-template-field data-template-channel>
+        <option value="PUSH">PUSH</option>
+        <option value="EMAIL">EMAIL</option>
+        <option value="LINE" selected>LINE</option>
+      </select>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label for="agent_name">Preview agent name</label>
+        <input id="agent_name" name="agent_name" class="input" value="{{ agent_name|default('Lin') }}" data-template-field data-template-agent-name />
+      </div>
+      <div class="field">
+        <label for="module_title">Preview module title</label>
+        <input id="module_title" name="module_title" class="input" value="{{ module_title|default('Travel Insurance') }}" data-template-field data-template-module-title />
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="field">
+        <label for="peak_learning_time">Peak learning hour</label>
+        <input id="peak_learning_time" name="peak_learning_time" type="time" class="input" value="{{ peak_learning_time|default('09:00') }}" data-template-field data-template-peak-window />
+      </div>
+      <div class="field">
+        <label for="streak_label">Streak label</label>
+        <input id="streak_label" name="streak_label" class="input" value="{{ streak_label|default('3-day streak') }}" data-template-field data-template-streak />
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="body_template">Message body</label>
+      <textarea id="body_template" name="body_template" class="textarea" data-template-field>{{ body_template|default("Hey {{agent_name}}, your {{module_title}} module is due soon. Spend 7 minutes before your {{peak_learning_time}} window closes.") }}</textarea>
+      <p class="field-hint">Placeholders stay readable for trainers and can be replaced by the backend renderer later.</p>
+    </div>
+
+    <div class="field">
+      <label for="title_template">Title template</label>
+      <input id="title_template" name="title_template" class="input" value="{{ title_template|default('Smart Nudge for {{agent_name}}') }}" data-template-field />
+    </div>
+
+    <div class="page-actions">
+      <button class="btn btn-primary" type="submit">Save template</button>
+      <a class="btn btn-secondary" href="{{ dispatches_url|default('/admin/dispatches') }}">See dispatches</a>
+    </div>
+  </form>
+
+  <aside class="stack">
+    <section class="panel stack">
+      <h3 class="section-title">Available tokens</h3>
+      <div class="cluster">
+        {{ template_token("{{agent_name}}") }}
+        {{ template_token("{{module_title}}") }}
+        {{ template_token("{{peak_learning_time}}") }}
+        {{ template_token("{{channel_type}}") }}
+      </div>
+      <p class="field-hint">Keeping the placeholder list small makes the system easier to explain in an interview and easier to maintain later.</p>
+    </section>
+
+    <section class="panel stack">
+      <h3 class="section-title">Template cards</h3>
+      <div class="timeline">
+        <div class="timeline-item">
+          <div class="timeline-meta">
+            <strong>bio_rhythm_peak</strong>
+            <span>LINE</span>
+          </div>
+          <p>“Hey {{ "{{agent_name}}" }}, your {{ "{{module_title}}" }} learning window is ready.”</p>
+        </div>
+        <div class="timeline-item">
+          <div class="timeline-meta">
+            <strong>streak_warning</strong>
+            <span>PUSH</span>
+          </div>
+          <p>“Your streak shield is vulnerable. Take a quick refresh before the next peak window closes.”</p>
+        </div>
+      </div>
+    </section>
+  </aside>
+</section>
+{% endblock %}

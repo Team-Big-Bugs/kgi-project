@@ -1,0 +1,22 @@
+{% from "partials/macros.html" import nav_link, badge %}
+{% set current = current_page|default("admin_dashboard") %}
+<nav class="nav">
+  <div class="nav-group">
+    {{ nav_link("Admin Home", admin_dashboard_url|default("/admin/dashboard"), current == "admin_dashboard", "AD", "Scheduler and delivery") }}
+    {{ nav_link("Templates", templates_url|default("/admin/templates"), current == "templates", "TP", "Message dictionary") }}
+    {{ nav_link("Dispatches", dispatches_url|default("/admin/dispatches"), current == "dispatches", "DQ", "Queue and logs") }}
+    {{ nav_link("Assignments", admin_assignments_url|default("/admin/assignments"), current == "admin_assignments", "LS", "Learning tasks") }}
+    {{ nav_link("Agents", agents_url|default("/admin/agents"), current == "agents", "AG", "Preferences and link state") }}
+    {{ nav_link("Scheduler", scheduler_url|default("/admin/scheduler"), current == "scheduler", "CR", "Cron and health") }}
+  </div>
+  <div class="nav-group">
+    <p class="nav-caption">System</p>
+    <div class="panel stack">
+      <div class="cluster">
+        {{ badge(admin_status|default("Operational"), "success") }}
+        {{ badge(environment_label|default("Railway / Supabase"), "soft") }}
+      </div>
+      <p class="field-hint">The UI uses graceful placeholders so routes and services can connect later without redesign work.</p>
+    </div>
+  </div>
+</nav>

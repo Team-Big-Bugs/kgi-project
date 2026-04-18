@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state %}
+{% set nav_mode = "admin" %}
+{% set current_page = "admin_assignments" %}
+{% set page_title = page_title|default("Learning Assignments") %}
+{% set page_subtitle = page_subtitle|default("Manage due modules and recall items.") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">Learning management</p>
+    <h2 class="page-title">Due work drives the nudge engine.</h2>
+    <p class="page-subtitle">Each assignment row gives the scheduler a clear due date and a simple task type to work with.</p>
+  </div>
+  <div class="panel stack">
+    <div class="cluster">
+      {{ badge(mandatory_label|default("Mandatory"), "accent") }}
+      {{ badge(recall_label|default("Recall"), "primary") }}
+    </div>
+    <p class="field-hint">This page is intentionally simple so it can be used in the demo without hiding the business logic.</p>
+  </div>
+</section>
+
+{% if assignments is defined and assignments %}
+  <div class="stack">
+    {% for assignment in assignments %}
+    <article class="timeline-item">
+      <div class="log-title">
+        <strong>{{ assignment.module_title|default("Travel Insurance") }}</strong>
+        <div class="cluster">
+          {{ badge(assignment.task_type|default("mandatory_module"), "primary") }}
+          {{ badge(assignment.status|default("pending"), "soft") }}
+        </div>
+      </div>
+      <p>{{ assignment.description|default("Learning content and completion rules go here.") }}</p>
+      <div class="timeline-meta">
+        <span>Due {{ assignment.due_at|default("09:30") }}</span>
+        <span>Agent {{ assignment.agent_name|default("Lin") }}</span>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+{% else %}
+  {{ empty_state("No assignments yet", "Seeded demo data or a trainer import can populate this list later.") }}
+{% endif %}
+{% endblock %}

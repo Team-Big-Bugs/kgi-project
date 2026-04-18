@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge, empty_state %}
+{% set nav_mode = "agent" %}
+{% set current_page = "history" %}
+{% set page_title = page_title|default("History") %}
+{% set page_subtitle = page_subtitle|default("Opened nudges, sent reminders, and delivery states.") %}
+
+{% block content %}
+<section class="hero hero-compact">
+  <div class="stack">
+    <p class="eyebrow">History</p>
+    <h2 class="page-title">See what landed and what was opened.</h2>
+    <p class="page-subtitle">This log view helps the agent understand how the system is behaving without exposing unnecessary technical detail.</p>
+  </div>
+  <div class="panel stack">
+    <div class="cluster">
+      {{ badge(open_rate_label|default("42% open"), "success") }}
+      {{ badge(failed_label|default("0 failed"), "soft") }}
+    </div>
+    <p class="field-hint">A tracking token can be logged as opened when the agent clicks through from the notification.</p>
+  </div>
+</section>
+
+{% if history is defined and history %}
+  <div class="timeline">
+    {% for item in history %}
+    <article class="timeline-item">
+      <div class="timeline-meta">
+        <strong>{{ item.title|default("Travel Insurance reminder") }}</strong>
+        <span>{{ item.time|default("Today, 08:45") }}</span>
+      </div>
+      <p>{{ item.description|default("The notification was sent using the preferred channel and tracked for conversion.") }}</p>
+      <div class="cluster">
+        {{ badge(item.channel|default("LINE"), "primary") }}
+        {{ badge(item.status|default("opened"), "success") }}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+{% else %}
+  {{ empty_state("No history yet", "Once the system starts sending nudges, successful opens will show up here.") }}
+{% endif %}
+{% endblock %}

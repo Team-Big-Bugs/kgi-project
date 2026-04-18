@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import badge %}
+{% set nav_mode = "agent" %}
+{% set current_page = "login" %}
+{% set page_title = page_title|default("Login") %}
+{% set page_subtitle = page_subtitle|default("Use a demo account to explore the Smart Nudge flow.") %}
+
+{% block content %}
+<section class="hero">
+  <div class="stack">
+    <p class="eyebrow">Demo sign-in</p>
+    <h2 class="page-title">Enter the app from the role you want to show.</h2>
+    <p class="page-subtitle">This MVP uses seeded users so the scheduling, queueing, and channel flows stay in focus instead of full authentication setup.</p>
+    <div class="cluster">
+      {{ badge("Agent + Admin demos", "primary") }}
+      {{ badge("Session auth", "soft") }}
+    </div>
+  </div>
+
+  <div class="preview-panel">
+    <div class="preview-heading">
+      <strong>Suggested flow</strong>
+      {{ badge("Agent first", "accent") }}
+    </div>
+    <div class="preview-message">
+      <h3>Walk through preferences, push, and LINE linking on mobile first.</h3>
+      <p>Then switch to the admin account to show templates, dispatch logs, and the manual scheduler trigger.</p>
+    </div>
+  </div>
+</section>
+
+<section class="grid-2">
+  <form class="panel stack" action="{{ login_action_url|default('/auth/login') }}" method="post">
+    {% if error_message %}
+    <div class="alert alert-error">
+      <h3>Login failed</h3>
+      <p>{{ error_message }}</p>
+    </div>
+    {% endif %}
+
+    <div class="field">
+      <label for="email">Email</label>
+      <input id="email" name="email" type="email" class="input" value="{{ email|default('') }}" required />
+    </div>
+
+    <div class="field">
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" class="input" required />
+    </div>
+
+    {% if next_url %}
+    <input type="hidden" name="next_url" value="{{ next_url }}" />
+    {% endif %}
+
+    <div class="page-actions">
+      <button class="btn btn-primary" type="submit">Sign in</button>
+    </div>
+  </form>
+
+  <div class="stack">
+    <article class="panel stack">
+      <h3 class="section-title">Demo accounts</h3>
+      <div class="copy-row">
+        <input id="demoAgentEmail" class="copy-field" type="text" readonly value="{{ demo_agent_email }}" />
+        <button type="button" class="btn btn-secondary" data-copy="#demoAgentEmail">Copy agent</button>
+      </div>
+      <div class="copy-row">
+        <input id="demoAdminEmail" class="copy-field" type="text" readonly value="{{ demo_admin_email }}" />
+        <button type="button" class="btn btn-secondary" data-copy="#demoAdminEmail">Copy admin</button>
+      </div>
+      <ul class="feature-list">
+        <li>Agent password: <code>{{ demo_agent_password }}</code></li>
+        <li>Admin password: <code>{{ demo_admin_password }}</code></li>
+      </ul>
+    </article>
+  </div>
+</section>
+{% endblock %}

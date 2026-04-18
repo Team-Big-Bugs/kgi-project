@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="zh-Hant" data-theme="smartnudge">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#00367B" />
+    <meta name="description" content="Smart Nudge notification engine for bite-sized learning." />
+    <title>{{ page_title|default("Smart Nudge") }}</title>
+    <link rel="manifest" href="/static/manifest.webmanifest" />
+    <link rel="icon" href="/static/icons/smart-nudge.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/static/icons/smart-nudge.svg" />
+    <link rel="stylesheet" href="/static/css/app.css" />
+    <script defer src="/static/js/app.js"></script>
+    {% block extra_head %}{% endblock %}
+  </head>
+  <body class="app-body" data-page="{{ current_page|default('dashboard') }}">
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">SN</div>
+          <div class="brand-copy">
+            <p class="brand-kicker">Smart Nudge</p>
+            <h1 class="brand-title">{{ page_title|default("Smart Nudge") }}</h1>
+            <p class="brand-subtitle">{{ page_subtitle|default("Calm timing for high-value learning moments.") }}</p>
+          </div>
+        </div>
+        <div class="toolbar">
+          {% if status_text is defined %}
+          <span class="status-pill status-{{ status_tone|default('neutral') }}">
+            <span class="status-dot"></span>
+            {{ status_text }}
+          </span>
+          {% endif %}
+          <span class="badge badge-soft">{{ role_label|default("Demo mode") }}</span>
+          <a class="btn btn-secondary btn-sm" href="{{ help_url|default('#') }}">Help</a>
+        </div>
+      </header>
+
+      <div class="layout">
+        <aside class="sidebar">
+          {% if nav_mode|default('agent') == 'admin' %}
+            {% include "partials/nav_admin.html" %}
+          {% else %}
+            {% include "partials/nav_agent.html" %}
+          {% endif %}
+        </aside>
+
+        <main class="main">
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    </div>
+
+    <nav class="mobile-nav">
+      {% if nav_mode|default('agent') == 'admin' %}
+        {% include "partials/nav_admin.html" %}
+      {% else %}
+        {% include "partials/nav_agent.html" %}
+      {% endif %}
+    </nav>
+
+    {% block extra_scripts %}{% endblock %}
+  </body>
+</html>

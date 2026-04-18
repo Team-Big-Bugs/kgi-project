@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "partials/macros.html" import stat_card, badge, empty_state %}
+{% set nav_mode = "agent" %}
+{% set current_page = "assignments" %}
+{% set page_title = page_title|default("Assignments") %}
+{% set page_subtitle = page_subtitle|default("Current modules and recall tasks.") %}
+
+{% block content %}
+<section class="hero">
+  <div class="stack">
+    <p class="eyebrow">Assignments</p>
+    <h2 class="page-title">What is due, and why it matters.</h2>
+    <p class="page-subtitle">Each card can represent a mandatory module or a memory recall quiz that the scheduler will nudge at the right time.</p>
+  </div>
+  <div class="panel stack">
+    <div class="cluster">
+      {{ badge(due_count|default("2 due"), "accent") }}
+      {{ badge(completed_count|default("5 completed"), "success") }}
+    </div>
+    <p class="field-hint">The assignment list stays short on mobile and expands into a richer overview on desktop.</p>
+  </div>
+</section>
+
+<section class="card-grid">
+  {{ stat_card("Mandatory modules", mandatory_count|default("1"), "Regulatory or product content that must be completed.", "accent") }}
+  {{ stat_card("Recall quizzes", recall_count|default("1"), "Short reinforcement checks tied to spaced repetition.") }}
+  {{ stat_card("Open streak", streak_label|default("3 days"), "Useful for the streak shield message in the lock-screen preview.") }}
+</section>
+
+<section class="section">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">Active items</h3>
+      <p class="section-note">A mobile-friendly list is easier to scan than a dense table on a small screen.</p>
+    </div>
+  </div>
+
+  {% if assignments is defined and assignments %}
+    <div class="stack">
+      {% for assignment in assignments %}
+      <article class="timeline-item">
+        <div class="log-title">
+          <strong>{{ assignment.module_title|default("Travel Insurance") }}</strong>
+          <div class="cluster">
+            {{ badge(assignment.task_type|default("mandatory_module"), "primary") }}
+            {{ badge(assignment.status|default("pending"), "soft") }}
+          </div>
+        </div>
+        <p>{{ assignment.description|default("Scenario-based learning task with a short completion window.") }}</p>
+        <div class="timeline-meta">
+          <span>Due {{ assignment.due_at|default("09:30") }}</span>
+          <a href="{{ assignment.detail_url|default('/assignments/1') }}">Open details</a>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  {% else %}
+    {{ empty_state("No assignments yet", "Seeded demo data or the scheduler will populate this view once the backend is connected.") }}
+  {% endif %}
+</section>
+{% endblock %}
