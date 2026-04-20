@@ -10,7 +10,27 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
+def _upgrade_postgresql() -> None:
+    op.alter_column("notification_templates", "id", new_column_name="template_id", existing_type=sa.Integer())
+    op.alter_column(
+        "notification_templates",
+        "body_template",
+        new_column_name="message_body_string",
+        existing_type=sa.Text(),
+    )
+    op.alter_column("agent_preferences", "user_id", new_column_name="agent_id", existing_type=sa.Integer())
+    op.alter_column("dispatch_logs", "id", new_column_name="dispatch_id", existing_type=sa.Integer())
+    op.alter_column("dispatch_logs", "user_id", new_column_name="agent_id", existing_type=sa.Integer())
+    op.alter_column(
+        "dispatch_logs",
+        "opened_at",
+        new_column_name="opened_timestamp",
+        existing_type=sa.DateTime(timezone=True),
+    )
+    op.execute("ALTER INDEX ix_dispatch_logs_user_id RENAME TO ix_dispatch_logs_agent_id")
+
+
+def _upgrade_sqlite() -> None:
     with op.batch_alter_table("notification_templates", recreate="always") as batch_op:
         batch_op.alter_column("id", new_column_name="template_id", existing_type=sa.Integer())
         batch_op.alter_column("body_template", new_column_name="message_body_string", existing_type=sa.Text())
@@ -32,7 +52,34 @@ def upgrade() -> None:
     op.create_index(op.f("ix_dispatch_logs_scheduled_dispatch_time"), "dispatch_logs", ["scheduled_dispatch_time"], unique=False)
 
 
-def downgrade() -> None:
+def upgrade() -> None:
+    if op.get_bind().dialect.name == "postgresql":
+        _upgrade_postgresql()
+    else:
+        _upgrade_sqlite()
+
+
+def _downgrade_postgresql() -> None:
+    op.execute("ALTER INDEX ix_dispatch_logs_agent_id RENAME TO ix_dispatch_logs_user_id")
+    op.alter_column("dispatch_logs", "dispatch_id", new_column_name="id", existing_type=sa.Integer())
+    op.alter_column("dispatch_logs", "agent_id", new_column_name="user_id", existing_type=sa.Integer())
+    op.alter_column(
+        "dispatch_logs",
+        "opened_timestamp",
+        new_column_name="opened_at",
+        existing_type=sa.DateTime(timezone=True),
+    )
+    op.alter_column("agent_preferences", "agent_id", new_column_name="user_id", existing_type=sa.Integer())
+    op.alter_column("notification_templates", "template_id", new_column_name="id", existing_type=sa.Integer())
+    op.alter_column(
+        "notification_templates",
+        "message_body_string",
+        new_column_name="body_template",
+        existing_type=sa.Text(),
+    )
+
+
+def _downgrade_sqlite() -> None:
     op.drop_index(op.f("ix_dispatch_logs_agent_id"), table_name="dispatch_logs")
     op.drop_index(op.f("ix_dispatch_logs_tracking_token"), table_name="dispatch_logs")
     op.drop_index(op.f("ix_dispatch_logs_scheduled_dispatch_time"), table_name="dispatch_logs")
@@ -52,3 +99,10 @@ def downgrade() -> None:
     with op.batch_alter_table("notification_templates", recreate="always") as batch_op:
         batch_op.alter_column("template_id", new_column_name="id", existing_type=sa.Integer())
         batch_op.alter_column("message_body_string", new_column_name="body_template", existing_type=sa.Text())
+
+
+def downgrade() -> None:
+    if op.get_bind().dialect.name == "postgresql":
+        _downgrade_postgresql()
+    else:
+        _downgrade_sqlite()
