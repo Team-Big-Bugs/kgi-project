@@ -218,6 +218,19 @@ class AuthRoutesTest(RouteTestCase):
         self.assertEqual(response.status_code, 401)
 
 
+class WebPushConfigTest(unittest.TestCase):
+    def test_resolve_vapid_private_key_accepts_pem_content(self):
+        pem_value = """-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg9PK8TU5v/KdtGL8W
+AWrZ7XtQP/aqmw+louTNFzlnmQShRANCAAQ//xNYMxWny4o4/FrC2uoORdbZ/WLp
+rOcvN6/oqLnbpPOajjznmhTyJn7xfJct1OsxSCbdF5nOcDaJK6bJAgMn
+-----END PRIVATE KEY-----"""
+
+        resolved = web_push_module._resolve_vapid_private_key(pem_value)
+
+        self.assertIsInstance(resolved, web_push_module.Vapid01)
+
+
 class SchedulerAndAdminRoutesTest(RouteTestCase):
     def test_manual_scheduler_route_returns_stats(self):
         admin = self.create_user(email="admin@example.com", password="secret123", role="admin", name="Admin")

@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 import json
+from pathlib import Path
 
+from py_vapid import Vapid01
 from pywebpush import WebPushException, webpush
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,11 +18,23 @@ from app.db.models.web_push_subscription import WebPushSubscription
 logger = get_logger(__name__)
 
 
+def _resolve_vapid_private_key(private_key_value: str) -> Vapid01 | str:
+    normalized = private_key_value.strip()
+    if Path(normalized).is_file():
+        return normalized
+    if "\\n" in normalized:
+        normalized = normalized.replace("\\n", "\n")
+    if "-----BEGIN" in normalized:
+        return Vapid01.from_pem(normalized.encode("utf-8"))
+    return normalized
+
+
 class WebPushSender:
     def send(self, *, db: Session, user: User, title: str, body: str, tracking_url: str) -> None:
         settings = get_settings()
         if not settings.vapid_public_key or not settings.vapid_private_key:
             raise RuntimeError("VAPID keys are not configured")
+        vapid_private_key = _resolve_vapid_private_key(settings.vapid_private_key)
 
         subscriptions = list(
             db.scalars(
@@ -57,7 +71,7 @@ class WebPushSender:
                         "keys": {"p256dh": subscription.p256dh_key, "auth": subscription.auth_key},
                     },
                     data=json.dumps(payload),
-                    vapid_private_key=settings.vapid_private_key,
+                    vapid_private_key=vapid_private_key,
                     vapid_claims={"sub": settings.vapid_subject},
                     ttl=3600,
                 )
