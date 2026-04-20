@@ -31,8 +31,12 @@
             {{ status_text }}
           </span>
           {% endif %}
-          <span class="badge badge-soft">{{ role_label|default("Demo mode") }}</span>
+          {% set session_role = request.session.get("role") if request is defined and request.session else None %}
+          <span class="badge badge-soft">{{ role_label|default(session_role|title if session_role else "Demo mode") }}</span>
           <a class="btn btn-secondary btn-sm" href="{{ help_url|default('#') }}">Help</a>
+          {% if session_role %}
+          <a class="btn btn-secondary btn-sm" href="{{ logout_url|default('/auth/logout') }}">Logout</a>
+          {% endif %}
         </div>
       </header>
 

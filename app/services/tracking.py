@@ -16,8 +16,8 @@ def mark_dispatch_opened(db: Session, tracking_token: str) -> DispatchLog | None
     dispatch = db.scalar(select(DispatchLog).where(DispatchLog.tracking_token == token))
     if dispatch is None:
         return None
-    if dispatch.opened_at is None:
-        dispatch.opened_at = datetime.now(timezone.utc)
+    if dispatch.opened_timestamp is None:
+        dispatch.opened_timestamp = datetime.now(timezone.utc)
         db.add(dispatch)
         db.commit()
         db.refresh(dispatch)

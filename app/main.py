@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -35,6 +35,26 @@ def create_app() -> FastAPI:
     app.state.settings = settings
     app.state.templates = templates
 
+    @app.exception_handler(403)
+    async def forbidden_handler(request: Request, exc: HTTPException) -> HTMLResponse:
+        accept = request.headers.get("accept", "").lower()
+        if "text/html" not in accept:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": exc.detail if isinstance(exc.detail, str) else "Forbidden"},
+            )
+        return templates.TemplateResponse(
+            name="system/403.html",
+            context={
+                "request": request,
+                "page_title": "Access Denied",
+                "demo_admin_email": str(settings.demo_admin_email),
+                "demo_admin_password": settings.demo_admin_password,
+            },
+            request=request,
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+
     @app.exception_handler(404)
     async def not_found_handler(request: Request, exc: HTTPException) -> HTMLResponse:
         return templates.TemplateResponse(
@@ -56,6 +76,14 @@ def create_app() -> FastAPI:
     @app.get("/", include_in_schema=False)
     async def root() -> RedirectResponse:
         return RedirectResponse(url="/dashboard", status_code=status.HTTP_302_FOUND)
+
+    @app.get("/sw.js", include_in_schema=False)
+    async def service_worker() -> FileResponse:
+        return FileResponse(
+            path=BASE_DIR / "static" / "sw.js",
+            media_type="application/javascript",
+            headers={"Service-Worker-Allowed": "/"},
+        )
 
     app.include_router(router)
     return app

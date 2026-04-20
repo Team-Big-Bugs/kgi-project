@@ -19,7 +19,20 @@ self.addEventListener("push", (event) => {
     },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    (async () => {
+      await self.registration.showNotification(title, options);
+      const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      clients.forEach((client) => {
+        client.postMessage({
+          type: "push-received",
+          title,
+          body: options.body,
+          receivedAt: new Date().toISOString(),
+        });
+      });
+    })(),
+  );
 });
 
 self.addEventListener("notificationclick", (event) => {

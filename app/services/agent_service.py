@@ -28,7 +28,7 @@ def get_or_create_preference(
     preference = db.get(AgentPreference, user_id)
     if preference is None:
         preference = AgentPreference(
-            user_id=user_id,
+            agent_id=user_id,
             preferred_channel=preferred_channel,
             dnd_start_time=dnd_start_time,
             dnd_end_time=dnd_end_time,
@@ -52,7 +52,7 @@ def update_preference(
 ) -> AgentPreference:
     preference = db.get(AgentPreference, user_id)
     if preference is None:
-        preference = AgentPreference(user_id=user_id, peak_learning_time=peak_learning_time)
+        preference = AgentPreference(agent_id=user_id, peak_learning_time=peak_learning_time)
 
     preference.preferred_channel = preferred_channel
     preference.dnd_start_time = dnd_start_time
@@ -77,7 +77,7 @@ def list_pending_assignments(db: Session, user_id: int) -> list[LearningAssignme
 def list_recent_dispatches(db: Session, user_id: int, limit: int = 10) -> list[DispatchLog]:
     stmt = (
         select(DispatchLog)
-        .where(DispatchLog.user_id == user_id)
+        .where(DispatchLog.agent_id == user_id)
         .order_by(DispatchLog.scheduled_dispatch_time.desc())
         .limit(limit)
     )

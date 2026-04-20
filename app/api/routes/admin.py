@@ -34,11 +34,11 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 def _summary(db: Session) -> AdminDashboardResponse:
     return AdminDashboardResponse(
         users=db.scalar(select(func.count(User.id)).where(User.role == "agent")) or 0,
-        templates=db.scalar(select(func.count(NotificationTemplate.id))) or 0,
+        templates=db.scalar(select(func.count(NotificationTemplate.template_id))) or 0,
         assignments=db.scalar(select(func.count(LearningAssignment.id))) or 0,
-        queued_dispatches=db.scalar(select(func.count(DispatchLog.id)).where(DispatchLog.status == "queued")) or 0,
-        sent_dispatches=db.scalar(select(func.count(DispatchLog.id)).where(DispatchLog.status == "sent")) or 0,
-        failed_dispatches=db.scalar(select(func.count(DispatchLog.id)).where(DispatchLog.status == "failed")) or 0,
+        queued_dispatches=db.scalar(select(func.count(DispatchLog.dispatch_id)).where(DispatchLog.status == "queued")) or 0,
+        sent_dispatches=db.scalar(select(func.count(DispatchLog.dispatch_id)).where(DispatchLog.status == "sent")) or 0,
+        failed_dispatches=db.scalar(select(func.count(DispatchLog.dispatch_id)).where(DispatchLog.status == "failed")) or 0,
     )
 
 
@@ -48,7 +48,7 @@ def _template_payload(template: NotificationTemplate) -> dict:
 
 def _agent_payloads(db: Session) -> list[dict]:
     agents = list(db.scalars(select(User).where(User.role == "agent").order_by(User.name.asc())))
-    preferences = {pref.user_id: pref for pref in db.scalars(select(AgentPreference))}
+    preferences = {pref.agent_id: pref for pref in db.scalars(select(AgentPreference))}
     payload = []
     for agent in agents:
         preference = preferences.get(agent.id)
@@ -72,13 +72,13 @@ def _agent_payloads(db: Session) -> list[dict]:
 def _dispatch_payloads(db: Session) -> list[dict]:
     dispatches = list(db.scalars(select(DispatchLog).order_by(DispatchLog.scheduled_dispatch_time.desc()).limit(50)))
     user_map = {user.id: user.name for user in db.scalars(select(User))}
-    template_map = {template.id: template.title_template for template in db.scalars(select(NotificationTemplate))}
+    template_map = {template.template_id: template.title_template for template in db.scalars(select(NotificationTemplate))}
     payload = []
     for dispatch in dispatches:
         payload.append(
             {
                 **DispatchLogSummary.model_validate(dispatch).model_dump(mode="json"),
-                "agent_name": user_map.get(dispatch.user_id, f"Agent #{dispatch.user_id}"),
+                "agent_name": user_map.get(dispatch.agent_id, f"Agent #{dispatch.agent_id}"),
                 "template_name": template_map.get(dispatch.template_id, f"Template #{dispatch.template_id}"),
                 "channel": dispatch.channel_type,
                 "status_tone": "success" if dispatch.status == "sent" else "warning" if dispatch.status == "queued" else "error",
@@ -109,7 +109,9 @@ def _assignment_payloads(db: Session) -> list[dict]:
 def dashboard(request: Request, db: Session = Depends(get_db)):
     require_admin_user(request, db)
     summary = _summary(db)
-    opened_count = db.scalar(select(func.count(DispatchLog.id)).where(DispatchLog.opened_at.is_not(None))) or 0
+    opened_count = db.scalar(
+        select(func.count(DispatchLog.dispatch_id)).where(DispatchLog.opened_timestamp.is_not(None))
+    ) or 0
     recent_dispatch = db.scalar(select(DispatchLog).order_by(DispatchLog.scheduled_dispatch_time.desc()))
     context = {
         "page_title": "Admin Dashboard",
@@ -164,7 +166,7 @@ def list_agents(request: Request, db: Session = Depends(get_db)):
 @router.get("/templates")
 def list_templates(request: Request, db: Session = Depends(get_db)):
     require_admin_user(request, db)
-    templates = list(db.scalars(select(NotificationTemplate).order_by(NotificationTemplate.id.desc())))
+    templates = list(db.scalars(select(NotificationTemplate).order_by(NotificationTemplate.template_id.desc())))
     payload = [_template_payload(template) for template in templates]
     return render_or_json(
         request,
@@ -190,7 +192,7 @@ async def create_template(request: Request, db: Session = Depends(get_db)):
             "trigger_type": form.get("trigger_type", "bio_rhythm_peak"),
             "channel_type": form.get("channel_type", "EMAIL"),
             "title_template": form.get("title_template", ""),
-            "body_template": form.get("body_template", ""),
+            "message_body_string": form.get("message_body_string") or form.get("body_template", ""),
             "is_active": parse_bool(form.get("is_active", True)),
         }
 
@@ -283,12 +285,12 @@ def scheduler_page(request: Request, db: Session = Depends(get_db)):
 @router.post("/test-notification")
 def test_notification(payload: ManualNotificationRequest, request: Request, db: Session = Depends(get_db)):
     require_admin_user(request, db)
-    user = db.get(User, payload.user_id)
+    user = db.get(User, payload.agent_id)
     assignment = db.get(LearningAssignment, payload.assignment_id)
     if user is None or assignment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User or assignment not found")
 
-    preference = db.scalar(select(AgentPreference).where(AgentPreference.user_id == user.id))
+    preference = db.scalar(select(AgentPreference).where(AgentPreference.agent_id == user.id))
     if preference is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User preference is missing")
 
@@ -310,7 +312,7 @@ def test_notification(payload: ManualNotificationRequest, request: Request, db: 
 
     orchestrator = DispatchOrchestrator(db)
     scheduled_dispatch_time = datetime.now(timezone.utc)
-    dedupe_key = f"manual:{user.id}:{assignment.id}:{template.id}:{scheduled_dispatch_time.isoformat()}"
+    dedupe_key = f"manual:{user.id}:{assignment.id}:{template.template_id}:{scheduled_dispatch_time.isoformat()}"
     dispatch = orchestrator.create_dispatch_log(
         user=user,
         preference=preference,

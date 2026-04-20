@@ -45,5 +45,5 @@ def render_template_message(
     }
 
     title = _render_template_string(template.title_template, context).strip()
-    body = _render_template_string(template.body_template, context).strip()
+    body = _render_template_string(template.message_body_string, context).strip()
     return title, body

@@ -22,6 +22,7 @@ from app.db.models.agent_preference import AgentPreference
 from app.db.models.dispatch_log import DispatchLog
 from app.db.models.learning_assignment import LearningAssignment
 from app.db.models.line_link_request import LineLinkRequest
+from app.db.models.web_push_subscription import WebPushSubscription
 from app.db.session import get_db
 from app.schemas.agent import LineLinkStartResponse, PreferenceUpdate
 from app.services.line_link_service import build_qr_data_uri, generate_link_code
@@ -55,19 +56,19 @@ def _serialize_assignments(assignments: list[LearningAssignment]) -> list[dict]:
 
 
 def _user_dispatches(db: Session, user_id: int) -> list[DispatchLog]:
-    stmt = select(DispatchLog).where(DispatchLog.user_id == user_id).order_by(desc(DispatchLog.scheduled_dispatch_time))
+    stmt = select(DispatchLog).where(DispatchLog.agent_id == user_id).order_by(desc(DispatchLog.scheduled_dispatch_time))
     return list(db.scalars(stmt))
 
 
 def _serialize_dispatches(dispatches: list[DispatchLog]) -> list[dict]:
     return [
         {
-            "id": dispatch.id,
+            "dispatch_id": dispatch.dispatch_id,
             "status": dispatch.status,
             "channel_type": dispatch.channel_type,
             "tracking_token": dispatch.tracking_token,
             "sent_at": dispatch.sent_at,
-            "opened_at": dispatch.opened_at,
+            "opened_timestamp": dispatch.opened_timestamp,
             "failure_reason": dispatch.failure_reason,
         }
         for dispatch in dispatches
@@ -82,8 +83,13 @@ def _latest_link_request(db: Session, user_id: int) -> LineLinkRequest | None:
 
 def _active_link_request(db: Session, user_id: int) -> LineLinkRequest | None:
     link_request = _latest_link_request(db, user_id)
-    if link_request and link_request.status == "pending" and link_request.expires_at > datetime.now(timezone.utc):
-        return link_request
+    if link_request and link_request.status == "pending":
+        expires_at = link_request.expires_at
+        compare_now = datetime.now(timezone.utc)
+        if expires_at.tzinfo is None:
+            compare_now = datetime.utcnow()
+        if expires_at > compare_now:
+            return link_request
     return None
 
 
@@ -125,7 +131,7 @@ def _dashboard_context(user, preference: AgentPreference | None, assignments: li
 @router.get("/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_db)):
     user = require_user(request, db)
-    preference = db.scalar(select(AgentPreference).where(AgentPreference.user_id == user.id))
+    preference = db.scalar(select(AgentPreference).where(AgentPreference.agent_id == user.id))
     assignments = _user_assignments(db, user.id, pending_only=True)
     dispatches = _user_dispatches(db, user.id)
     context = _dashboard_context(user, preference, assignments, dispatches)
@@ -148,7 +154,13 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 @router.get("/preferences")
 def preferences(request: Request, db: Session = Depends(get_db)):
     user = require_user(request, db)
-    preference = db.scalar(select(AgentPreference).where(AgentPreference.user_id == user.id))
+    preference = db.scalar(select(AgentPreference).where(AgentPreference.agent_id == user.id))
+    active_push = db.scalar(
+        select(WebPushSubscription).where(
+            WebPushSubscription.user_id == user.id,
+            WebPushSubscription.is_active.is_(True),
+        )
+    )
     active_request = _active_link_request(db, user.id)
     pending_assignments = _user_assignments(db, user.id, pending_only=True)
     line_qr = None
@@ -157,12 +169,26 @@ def preferences(request: Request, db: Session = Depends(get_db)):
 
     context = {
         "page_title": "Preference Center",
+        "saved": request.query_params.get("saved") == "1",
         "user": user,
         "preferred_channel": preference.preferred_channel if preference else "EMAIL",
+        "dnd_label": (
+            f"Do not disturb {format_time_value(preference.dnd_start_time)} - {format_time_value(preference.dnd_end_time)}"
+            if preference and preference.dnd_start_time and preference.dnd_end_time
+            else f"Do not disturb after {settings.default_dnd_start_time}"
+        ),
+        "opt_out_label": (
+            "Opted out for compliance"
+            if preference and preference.is_opted_out
+            else "Nudges active"
+        ),
         "dnd_start_time": format_time_value(preference.dnd_start_time) if preference else settings.default_dnd_start_time,
         "dnd_end_time": format_time_value(preference.dnd_end_time) if preference else settings.default_dnd_end_time,
         "is_opted_out": preference.is_opted_out if preference else False,
         "peak_learning_time": format_time_value(preference.peak_learning_time) if preference else settings.default_peak_learning_time,
+        "line_status": "Linked" if user.line_user_id else "Not linked",
+        "push_status_text": "Connected" if active_push else "Not connected",
+        "push_status_tone": "success" if active_push else "neutral",
         "agent_name": user.name,
         "module_title": pending_assignments[0].module_title if pending_assignments else "Travel Insurance Essentials",
         "line_link_code": active_request.link_code if active_request else "",
@@ -171,6 +197,8 @@ def preferences(request: Request, db: Session = Depends(get_db)):
         "line_qr_data_uri": line_qr,
         "vapid_public_key_url": "/notifications/push/public-key",
         "push_subscribe_url": "/notifications/push/subscribe",
+        "push_test_url": "/notifications/push/test",
+        "push_local_test_label": "Show local notification",
         "dashboard_url": "/dashboard",
         "preferred_channel_label": preference.preferred_channel if preference else "Email",
     }
@@ -221,9 +249,9 @@ async def update_preferences(request: Request, db: Session = Depends(get_db)):
             raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
         raise
 
-    preference = db.scalar(select(AgentPreference).where(AgentPreference.user_id == user.id))
+    preference = db.scalar(select(AgentPreference).where(AgentPreference.agent_id == user.id))
     if preference is None:
-        preference = AgentPreference(user_id=user.id)
+        preference = AgentPreference(agent_id=user.id)
     preference.preferred_channel = payload.preferred_channel
     preference.dnd_start_time = payload.dnd_start_time
     preference.dnd_end_time = payload.dnd_end_time
@@ -234,7 +262,7 @@ async def update_preferences(request: Request, db: Session = Depends(get_db)):
     db.refresh(preference)
 
     if expects_html(request):
-        return RedirectResponse(url="/preferences", status_code=status.HTTP_303_SEE_OTHER)
+        return RedirectResponse(url="/preferences?saved=1", status_code=status.HTTP_303_SEE_OTHER)
     return {"ok": True, "preference": preference_payload(preference)}
 
 
@@ -370,7 +398,7 @@ def history(request: Request, db: Session = Depends(get_db)):
             "time": dispatch.scheduled_dispatch_time,
             "description": dispatch.failure_reason or "Tracked notification event.",
             "channel": dispatch.channel_type,
-            "status": "opened" if dispatch.opened_at else dispatch.status,
+            "status": "opened" if dispatch.opened_timestamp else dispatch.status,
         }
         for dispatch in dispatches
     ]
@@ -380,7 +408,7 @@ def history(request: Request, db: Session = Depends(get_db)):
         {
             "page_title": "History",
             "history": history_items,
-            "open_rate_label": f"{len([item for item in dispatches if item.opened_at])} opens",
+            "open_rate_label": f"{len([item for item in dispatches if item.opened_timestamp])} opens",
             "failed_label": f"{len([item for item in dispatches if item.status == 'failed'])} failed",
         },
         {"page": "history", "history": history_items},

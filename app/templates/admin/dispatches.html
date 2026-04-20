@@ -46,7 +46,7 @@
           <td>{{ dispatch.channel|default("LINE") }}</td>
           <td><span class="badge badge-{{ dispatch.status_tone|default('neutral') }}">{{ dispatch.status|default("queued") }}</span></td>
           <td>{{ dispatch.sent_at|default("—") }}</td>
-          <td>{{ dispatch.opened_at|default("—") }}</td>
+          <td>{{ dispatch.opened_timestamp|default("—") }}</td>
         </tr>
         {% endfor %}
       </tbody>

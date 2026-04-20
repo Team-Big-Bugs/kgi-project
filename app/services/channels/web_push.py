@@ -60,7 +60,6 @@ class WebPushSender:
                     vapid_private_key=settings.vapid_private_key,
                     vapid_claims={"sub": settings.vapid_subject},
                     ttl=3600,
-                    urgency="normal",
                 )
                 subscription.last_seen_at = datetime.now(timezone.utc)
                 db.add(subscription)

@@ -34,6 +34,7 @@ from app.services.dispatch import DispatchResult
 from app.services.line_link_service import generate_link_code
 from app.services.scheduler import SchedulerStats
 from app.services.channels import line as line_channel_module
+from app.services.channels import web_push as web_push_module
 
 
 settings = get_settings()
@@ -85,7 +86,7 @@ class RouteTestCase(unittest.TestCase):
     def create_preference(
         self,
         *,
-        user_id: int,
+        agent_id: int,
         preferred_channel: str = "EMAIL",
         peak_learning_time: str = "09:00",
         dnd_start_time: str | None = "20:00",
@@ -94,7 +95,7 @@ class RouteTestCase(unittest.TestCase):
     ) -> AgentPreference:
         with self.SessionLocal() as db:
             preference = AgentPreference(
-                user_id=user_id,
+                agent_id=agent_id,
                 preferred_channel=preferred_channel,
                 peak_learning_time=datetime.strptime(peak_learning_time, "%H:%M").time(),
                 dnd_start_time=None if dnd_start_time is None else datetime.strptime(dnd_start_time, "%H:%M").time(),
@@ -132,7 +133,7 @@ class RouteTestCase(unittest.TestCase):
         trigger_type: str = "bio_rhythm_peak",
         channel_type: str = "EMAIL",
         title_template: str = "Hi {{agent_name}}",
-        body_template: str = "Module: {{module_title}}",
+        message_body_string: str = "Module: {{module_title}}",
         is_active: bool = True,
     ) -> NotificationTemplate:
         with self.SessionLocal() as db:
@@ -140,7 +141,7 @@ class RouteTestCase(unittest.TestCase):
                 trigger_type=trigger_type,
                 channel_type=channel_type,
                 title_template=title_template,
-                body_template=body_template,
+                message_body_string=message_body_string,
                 is_active=is_active,
             )
             db.add(template)
@@ -151,7 +152,7 @@ class RouteTestCase(unittest.TestCase):
     def create_dispatch(
         self,
         *,
-        user_id: int,
+        agent_id: int,
         assignment_id: int,
         template_id: int,
         tracking_token: str = "token-123",
@@ -159,7 +160,7 @@ class RouteTestCase(unittest.TestCase):
     ) -> DispatchLog:
         with self.SessionLocal() as db:
             dispatch = DispatchLog(
-                user_id=user_id,
+                agent_id=agent_id,
                 learning_assignment_id=assignment_id,
                 template_id=template_id,
                 channel_type="EMAIL",
@@ -245,35 +246,52 @@ class SchedulerAndAdminRoutesTest(RouteTestCase):
         self.client.post("/auth/login", json={"email": admin.email, "password": "secret123"})
 
         agent = self.create_user(email="agent2@example.com", password="secret123", role="agent", name="Lin Agent")
-        self.create_preference(user_id=agent.id, preferred_channel="EMAIL")
+        self.create_preference(agent_id=agent.id, preferred_channel="EMAIL")
         assignment = self.create_assignment(user_id=agent.id, module_title="Travel Insurance")
         self.create_template(channel_type="EMAIL", trigger_type="bio_rhythm_peak")
 
         with patch.object(admin_routes.DispatchOrchestrator, "send_dispatch", return_value=DispatchResult(status="sent")):
             response = self.client.post(
                 "/admin/test-notification",
-                json={"user_id": agent.id, "assignment_id": assignment.id},
+                json={"agent_id": agent.id, "assignment_id": assignment.id},
             )
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["dispatch"]["status"], "sent")
 
         with self.SessionLocal() as db:
-            dispatch = db.scalar(select(DispatchLog).where(DispatchLog.user_id == agent.id))
+            dispatch = db.scalar(select(DispatchLog).where(DispatchLog.agent_id == agent.id))
             self.assertIsNotNone(dispatch)
             self.assertEqual(dispatch.status, "sent")
             self.assertIsNotNone(dispatch.tracking_token)
 
 
 class TrackingAndWebhookRoutesTest(RouteTestCase):
+    def test_preferences_page_handles_naive_line_link_expiry(self):
+        user = self.create_user(email="prefs@example.com", password="secret123", role="agent", name="Prefs User")
+        self.create_preference(agent_id=user.id, preferred_channel="LINE")
+
+        self.client.post("/auth/login", json={"email": user.email, "password": "secret123"})
+
+        with self.SessionLocal() as db:
+            link_request = generate_link_code(db, user=user)
+            link_request.expires_at = link_request.expires_at.replace(tzinfo=None)
+            db.add(link_request)
+            db.commit()
+
+        response = self.client.get("/preferences")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Preference Center", response.text)
+
     def test_tracking_marks_dispatch_opened_and_redirects(self):
         user = self.create_user(email="track@example.com", password="secret123", role="agent", name="Track User")
         assignment = self.create_assignment(user_id=user.id, module_title="Compliance")
         template = self.create_template(channel_type="EMAIL")
         dispatch = self.create_dispatch(
-            user_id=user.id,
+            agent_id=user.id,
             assignment_id=assignment.id,
-            template_id=template.id,
+            template_id=template.template_id,
             tracking_token="track-token-1",
             status="sent",
         )
@@ -284,8 +302,8 @@ class TrackingAndWebhookRoutesTest(RouteTestCase):
         self.assertEqual(response.headers["location"], f"/assignments/{assignment.id}")
 
         with self.SessionLocal() as db:
-            refreshed = db.get(DispatchLog, dispatch.id)
-            self.assertIsNotNone(refreshed.opened_at)
+            refreshed = db.get(DispatchLog, dispatch.dispatch_id)
+            self.assertIsNotNone(refreshed.opened_timestamp)
 
     def test_line_webhook_links_user_from_link_code(self):
         user = self.create_user(email="line@example.com", password="secret123", role="agent", name="Line User")
@@ -327,6 +345,37 @@ class TrackingAndWebhookRoutesTest(RouteTestCase):
             refreshed_request = db.scalar(select(LineLinkRequest).where(LineLinkRequest.link_code == link_code))
             self.assertEqual(refreshed_user.line_user_id, "U123456789")
             self.assertEqual(refreshed_request.status, "linked")
+
+
+class PreferencesAndPushRoutesTest(RouteTestCase):
+    def test_preferences_save_redirects_with_success_flag(self):
+        user = self.create_user(email="prefs-save@example.com", password="secret123", role="agent", name="Prefs Save")
+        self.client.post("/auth/login", json={"email": user.email, "password": "secret123"})
+
+        response = self.client.post(
+            "/preferences",
+            data={
+                "preferred_channel": "PUSH",
+                "dnd_start_time": "22:00",
+                "dnd_end_time": "06:00",
+                "peak_learning_time": "08:45",
+            },
+            follow_redirects=False,
+        )
+
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response.headers["location"], "/preferences?saved=1")
+
+    def test_push_test_route_dispatches_web_push(self):
+        user = self.create_user(email="push@example.com", password="secret123", role="agent", name="Push User")
+        self.client.post("/auth/login", json={"email": user.email, "password": "secret123"})
+
+        with patch.object(web_push_module.WebPushSender, "send", return_value=None) as mocked_send:
+            response = self.client.post("/notifications/push/test")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["ok"])
+        mocked_send.assert_called_once()
 
 
 if __name__ == "__main__":

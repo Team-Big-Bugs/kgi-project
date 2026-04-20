@@ -32,7 +32,14 @@
       ...options,
     });
     if (!response.ok) {
-      throw new Error(`Request failed: ${response.status}`);
+      let detail = `Request failed: ${response.status}`;
+      try {
+        const payload = await response.json();
+        detail = payload.detail || payload.message || detail;
+      } catch (error) {
+        // Ignore JSON parsing failures and keep the fallback message.
+      }
+      throw new Error(detail);
     }
     return response.json();
   };
@@ -100,9 +107,17 @@
 
   const registerPushSetup = () => {
     const button = qs("[data-push-enable]");
+    const testButton = qs("[data-push-test]");
+    const localTestButton = qs("[data-push-local-test]");
+    const statusSelector =
+      button?.getAttribute("data-status-target") ||
+      testButton?.getAttribute("data-status-target") ||
+      localTestButton?.getAttribute("data-status-target") ||
+      "";
+    const statusTarget = qs(statusSelector);
+    const debugTarget = qs("[data-push-debug]");
     if (!button) return;
 
-    const statusTarget = qs(button.getAttribute("data-status-target") || "");
     const subscribeEndpoint = button.getAttribute("data-subscribe-endpoint") || "/push/subscribe";
     const vapidUrl = button.getAttribute("data-vapid-url") || "/push/vapid-public-key";
 
@@ -119,7 +134,7 @@
           return;
         }
 
-        const registration = await navigator.serviceWorker.register("/static/sw.js", { scope: "/" });
+        const registration = await navigator.serviceWorker.register("/sw.js", { scope: "/" });
         const { key } = await fetchJson(vapidUrl);
         const subscription = await registration.pushManager.subscribe({
           userVisibleOnly: true,
@@ -139,6 +154,53 @@
     };
 
     button.addEventListener("click", runSetup);
+
+    testButton?.addEventListener("click", async () => {
+      const endpoint = testButton.getAttribute("data-test-endpoint") || "/notifications/push/test";
+      try {
+        await fetchJson(endpoint, { method: "POST" });
+        setStatus(statusTarget, "Test push dispatched.", "success");
+        if (debugTarget) debugTarget.textContent = "Debug status: server accepted the push dispatch request.";
+      } catch (error) {
+        console.error(error);
+        setStatus(statusTarget, error.message || "Test push could not be sent yet.", "error");
+        if (debugTarget) debugTarget.textContent = `Debug status: ${error.message || "Push dispatch failed."}`;
+      }
+    });
+
+    localTestButton?.addEventListener("click", async () => {
+      try {
+        if (Notification.permission !== "granted") {
+          const permission = await Notification.requestPermission();
+          if (permission !== "granted") {
+            throw new Error("Notification permission was not granted.");
+          }
+        }
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification("Smart Nudge local test", {
+          body: "If you can see this, the browser can display notifications on this device.",
+          icon: "/static/icons/smart-nudge.svg",
+          badge: "/static/icons/smart-nudge.svg",
+          data: { url: "/preferences" },
+        });
+        setStatus(statusTarget, "Local notification displayed.", "success");
+        if (debugTarget) debugTarget.textContent = "Debug status: local notification display succeeded.";
+      } catch (error) {
+        console.error(error);
+        setStatus(statusTarget, error.message || "Local notification could not be displayed.", "error");
+        if (debugTarget) debugTarget.textContent = `Debug status: ${error.message || "Local display failed."}`;
+      }
+    });
+
+    navigator.serviceWorker?.addEventListener("message", (event) => {
+      const payload = event.data || {};
+      if (payload.type !== "push-received") return;
+      const receivedAt = payload.receivedAt ? new Date(payload.receivedAt).toLocaleTimeString() : "just now";
+      setStatus(statusTarget, `Push received at ${receivedAt}.`, "success");
+      if (debugTarget) {
+        debugTarget.textContent = `Debug status: push event received at ${receivedAt}. If no banner appeared, Chrome or macOS likely suppressed the visible alert even though the notification API succeeded.`;
+      }
+    });
   };
 
   const wireChannelTabs = () => {

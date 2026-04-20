@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% set nav_mode = "agent" %}
+{% set current_page = "dashboard" %}
+{% set page_title = page_title|default("Access denied") %}
+
+{% block content %}
+<section class="error-layout">
+  <article class="panel error-card stack">
+    <p class="error-code">403</p>
+    <h2 class="page-title">This area is for admin users only.</h2>
+    <p class="page-subtitle">The Admin Template Builder and dispatch dashboard are part of the trainer/admin flow. Sign in with the seeded admin account to review that UI.</p>
+    <div class="alert alert-info">
+      <h3>Demo admin account</h3>
+      <p>{{ demo_admin_email|default("admin@smartnudge.example") }} / {{ demo_admin_password|default("admin1234") }}</p>
+    </div>
+    <div class="page-actions" style="justify-content:center;">
+      <a class="btn btn-primary" href="{{ logout_url|default('/auth/logout') }}">Switch account</a>
+      <a class="btn btn-secondary" href="{{ dashboard_url|default('/dashboard') }}">Back to dashboard</a>
+    </div>
+  </article>
+</section>
+{% endblock %}

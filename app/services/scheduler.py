@@ -53,8 +53,8 @@ def _within_peak_window(local_now: datetime, peak_learning_time: time) -> bool:
     return window_start <= local_now <= peak_datetime
 
 
-def _dispatch_dedupe_key(*, user_id: int, assignment_id: int, channel_type: str, scheduled_date: str) -> str:
-    return f"{user_id}:{assignment_id}:{channel_type}:{scheduled_date}"
+def _dispatch_dedupe_key(*, agent_id: int, assignment_id: int, channel_type: str, scheduled_date: str) -> str:
+    return f"{agent_id}:{assignment_id}:{channel_type}:{scheduled_date}"
 
 
 def query_due_assignments(db: Session, now_utc: datetime | None = None) -> list[LearningAssignment]:
@@ -105,7 +105,7 @@ def run_scheduler(db: Session, now_utc: datetime | None = None) -> SchedulerStat
             continue
 
         dedupe_key = _dispatch_dedupe_key(
-            user_id=user.id,
+            agent_id=user.id,
             assignment_id=assignment.id,
             channel_type=preference.preferred_channel,
             scheduled_date=local_now.strftime("%Y-%m-%d"),

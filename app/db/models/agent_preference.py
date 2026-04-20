@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import time
 
 from sqlalchemy import Boolean, Enum, ForeignKey, Time
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, synonym
 
 from app.db.base import Base
 from app.db.models.mixins import TimestampMixin
@@ -12,7 +12,7 @@ from app.db.models.mixins import TimestampMixin
 class AgentPreference(TimestampMixin, Base):
     __tablename__ = "agent_preferences"
 
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    agent_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     preferred_channel: Mapped[str] = mapped_column(
         Enum("PUSH", "EMAIL", "LINE", name="channel_type"), default="EMAIL", nullable=False
     )
@@ -21,4 +21,5 @@ class AgentPreference(TimestampMixin, Base):
     is_opted_out: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     peak_learning_time: Mapped[time] = mapped_column(Time(), nullable=False)
 
+    user_id = synonym("agent_id")
     user: Mapped["User"] = relationship(back_populates="preference")

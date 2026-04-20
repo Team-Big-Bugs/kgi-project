@@ -71,8 +71,8 @@
     </div>
 
     <div class="field">
-      <label for="body_template">Message body</label>
-      <textarea id="body_template" name="body_template" class="textarea" data-template-field>{{ body_template|default("Hey {{agent_name}}, your {{module_title}} module is due soon. Spend 7 minutes before your {{peak_learning_time}} window closes.") }}</textarea>
+      <label for="message_body_string">Message body</label>
+      <textarea id="message_body_string" name="message_body_string" class="textarea" data-template-field>{{ message_body_string|default("Hey {{agent_name}}, your {{module_title}} module is due soon. Spend 7 minutes before your {{peak_learning_time}} window closes.") }}</textarea>
       <p class="field-hint">Placeholders stay readable for trainers and can be replaced by the backend renderer later.</p>
     </div>
 

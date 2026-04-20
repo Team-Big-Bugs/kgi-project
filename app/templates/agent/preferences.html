@@ -18,10 +18,10 @@
     </div>
   </div>
 
-  <div class="panel stack" id="pushStatusPanel">
+  <div class="panel stack" id="push">
     <div class="preview-heading">
       <strong>Push setup</strong>
-      <span id="pushStatus" class="status-pill status-neutral">Not connected</span>
+      <span id="pushStatus" class="status-pill status-{{ push_status_tone|default('neutral') }}">{{ push_status_text|default("Not connected") }}</span>
     </div>
     <p class="field-hint" data-push-permission-hint>Use the button below to request browser permission and register the service worker.</p>
     <div class="page-actions">
@@ -35,13 +35,41 @@
       >
         Enable Push
       </button>
+      <button
+        type="button"
+        class="btn btn-secondary"
+        data-push-test
+        data-status-target="#pushStatus"
+        data-test-endpoint="{{ push_test_url|default('/notifications/push/test') }}"
+      >
+        Send test push
+      </button>
+      <button
+        type="button"
+        class="btn btn-secondary"
+        data-push-local-test
+        data-status-target="#pushStatus"
+      >
+        {{ push_local_test_label|default("Show local notification") }}
+      </button>
       <a class="btn btn-secondary" href="{{ push_details_url|default('/preferences#push') }}">Setup details</a>
     </div>
+    <div class="field-hint">
+      <strong>Setup details</strong>
+      <p>1. Allow browser notifications. 2. Register the service worker. 3. Save a push subscription to your account. 4. Send a local test push to verify delivery.</p>
+    </div>
+    <p class="field-hint" data-push-debug>Debug status: waiting for a push event.</p>
   </div>
 </section>
 
 <section class="grid-2">
   <form class="panel stack" action="{{ preferences_save_url|default('/preferences') }}" method="post">
+    {% if saved %}
+    <div class="panel stack">
+      <strong>Preferences saved</strong>
+      <p class="field-hint">Your preferred channel, DND window, and peak learning hour were updated.</p>
+    </div>
+    {% endif %}
     <div class="section-header">
       <div>
         <h3 class="section-title">Rules of engagement</h3>
@@ -96,9 +124,9 @@
   <div class="stack">
     <section class="panel stack" id="line">
       <div class="preview-heading">
-        <strong>LINE onboarding</strong>
-        <span id="lineStatus" class="status-pill status-neutral">Not linked</span>
-      </div>
+      <strong>LINE onboarding</strong>
+      <span id="lineStatus" class="status-pill status-{{ 'success' if line_status == 'Linked' else 'neutral' }}">{{ line_status|default("Not linked") }}</span>
+    </div>
       <p class="field-hint">Show the official account QR code, let the agent add it as a friend, and complete linking with a one-time code.</p>
       <div class="qr-box">
         {% if line_qr_data_uri %}

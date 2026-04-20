@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.db.models.web_push_subscription import WebPushSubscription
 from app.db.session import get_db
 from app.schemas.notifications import PushPublicKeyResponse, PushSubscriptionCreate, PushSubscriptionRead, PushUnsubscribeRequest
+from app.services.channels.web_push import WebPushSender
 
 
 settings = get_settings()
@@ -64,3 +65,23 @@ def unsubscribe_push(payload: PushUnsubscribeRequest, request: Request, db: Sess
     db.add(subscription)
     db.commit()
     return {"ok": True, "subscription": PushSubscriptionRead.model_validate(subscription).model_dump(mode="json")}
+
+
+@router.post("/push/test")
+def test_push_notification(request: Request, db: Session = Depends(get_db)):
+    user = require_user(request, db)
+    sender = WebPushSender()
+    try:
+        sender.send(
+            db=db,
+            user=user,
+            title="Smart Nudge test",
+            body="Your web push channel is working. This is a local verification nudge.",
+            tracking_url="/dashboard",
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Push test failed: {exc}",
+        ) from exc
+    return {"ok": True, "message": "Test push dispatched"}

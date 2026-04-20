@@ -17,7 +17,7 @@ class PreferenceUpdate(BaseModel):
 class PreferenceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    user_id: int
+    agent_id: int
     preferred_channel: str
     dnd_start_time: time | None = None
     dnd_end_time: time | None = None
@@ -38,12 +38,12 @@ class AssignmentSummary(BaseModel):
 class DispatchSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    id: int
+    dispatch_id: int
     status: str
     channel_type: str
     tracking_token: str
     sent_at: datetime | None = None
-    opened_at: datetime | None = None
+    opened_timestamp: datetime | None = None
     failure_reason: str | None = None
 
 

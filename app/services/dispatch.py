@@ -46,9 +46,9 @@ class DispatchOrchestrator:
         dedupe_key: str,
     ) -> DispatchLog:
         dispatch = DispatchLog(
-            user_id=user.id,
+            agent_id=user.id,
             learning_assignment_id=assignment.id,
-            template_id=template.id,
+            template_id=template.template_id,
             channel_type=preference.preferred_channel,
             scheduled_dispatch_time=scheduled_dispatch_time,
             status="queued",
@@ -60,10 +60,10 @@ class DispatchOrchestrator:
         return dispatch
 
     def send_dispatch(self, dispatch: DispatchLog) -> DispatchResult:
-        user = self.db.get(User, dispatch.user_id)
+        user = self.db.get(User, dispatch.agent_id)
         assignment = self.db.get(LearningAssignment, dispatch.learning_assignment_id)
         template = self.db.get(NotificationTemplate, dispatch.template_id)
-        preference = self.db.scalar(select(AgentPreference).where(AgentPreference.user_id == dispatch.user_id))
+        preference = self.db.scalar(select(AgentPreference).where(AgentPreference.agent_id == dispatch.agent_id))
 
         if not user or not assignment or not template or not preference:
             return DispatchResult(status="failed", failure_reason="Missing dispatch dependencies")

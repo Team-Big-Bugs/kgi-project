@@ -108,7 +108,7 @@ def preference_payload(preference: AgentPreference | None) -> dict[str, Any] | N
     if preference is None:
         return None
     return {
-        "user_id": preference.user_id,
+        "agent_id": preference.agent_id,
         "preferred_channel": preference.preferred_channel,
         "dnd_start_time": format_time_value(preference.dnd_start_time),
         "dnd_end_time": format_time_value(preference.dnd_end_time),
