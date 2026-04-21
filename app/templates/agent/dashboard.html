@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import stat_card, badge, empty_state %}
+{% from "partials/macros.html" import stat_card, badge %}
 {% set nav_mode = "agent" %}
 {% set current_page = "dashboard" %}
 {% set page_title = page_title|default("Agent Dashboard") %}
@@ -13,11 +13,6 @@
     <p class="page-subtitle">
       Smart Nudge keeps the next module, recall quiz, and preferred channel visible without crowding the day.
     </p>
-    <div class="cluster">
-      {{ badge(next_peak_window|default("Peak window 09:00"), "primary") }}
-      {{ badge(due_today_label|default("1 due today"), "accent") }}
-      {{ badge(channel_label|default("Push + LINE ready"), "soft") }}
-    </div>
     <div class="page-actions">
       <a class="btn btn-primary" href="{{ preferences_url|default('/preferences') }}">Open Preferences</a>
       <a class="btn btn-secondary" href="{{ assignments_url|default('/assignments') }}">View Assignments</a>
@@ -42,29 +37,6 @@
 
 <section class="card-grid">
   {{ stat_card("Due now", due_count|default("1"), "Mandatory module or recall quiz waiting.", "accent") }}
-  {{ stat_card("Peak window", peak_window|default("09:00"), "Smart Nudge checks the 15-minute window.", "neutral") }}
   {{ stat_card("Preferred channel", preferred_channel|default("LINE"), "Push, email, or LINE can be changed anytime.") }}
-</section>
-
-<section class="section">
-  <div class="section-header">
-    <div>
-      <h3 class="section-title">Next action</h3>
-      <p class="section-note">Keep one clear action front and center so the nudge feels actionable in a busy day.</p>
-    </div>
-  </div>
-  <article class="panel stack">
-    <div class="cluster">
-      {{ badge("Recommended now", "primary") }}
-      {{ badge("7 minutes", "soft") }}
-    </div>
-    <h4 class="section-title">{{ module_title|default("Travel Insurance refresh") }}</h4>
-    <p class="page-subtitle">Open the next due module or recall quiz, then come back for tracking and channel history if you need it.</p>
-    <div class="page-actions">
-      <a class="btn btn-primary" href="{{ assignment_url|default('/assignments/1') }}">Open module</a>
-      <a class="btn btn-secondary" href="{{ preferences_url|default('/preferences') }}">Check channel settings</a>
-      <a class="btn btn-secondary" href="{{ history_url|default('/history') }}">Recent activity</a>
-    </div>
-  </article>
 </section>
 {% endblock %}
