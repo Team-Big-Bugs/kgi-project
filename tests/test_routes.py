@@ -470,6 +470,28 @@ class TrackingAndWebhookRoutesTest(RouteTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Preference Center", response.text)
 
+        with self.SessionLocal() as db:
+            pending_requests = list(
+                db.scalars(
+                    select(LineLinkRequest)
+                    .where(LineLinkRequest.user_id == user.id, LineLinkRequest.status == "pending")
+                    .order_by(LineLinkRequest.created_at.desc())
+                )
+            )
+            self.assertGreaterEqual(len(pending_requests), 1)
+
+    def test_preferences_page_generates_line_qr_for_line_channel(self):
+        user = self.create_user(email="line-pref@example.com", password="secret123", role="agent", name="Line Pref")
+        self.create_preference(agent_id=user.id, preferred_channel="LINE")
+
+        self.client.post("/auth/login", json={"email": user.email, "password": "secret123"})
+
+        response = self.client.get("/preferences")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("data:image/png;base64", response.text)
+        self.assertIn("LINK-", response.text)
+
     def test_tracking_marks_dispatch_opened_and_redirects(self):
         user = self.create_user(email="track@example.com", password="secret123", role="agent", name="Track User")
         assignment = self.create_assignment(user_id=user.id, module_title="Compliance")

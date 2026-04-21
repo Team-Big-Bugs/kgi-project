@@ -222,7 +222,23 @@
     const refreshButton = qs("[data-line-link-refresh]");
     const statusTarget = qs("[data-line-link-status]");
     const monitorRoot = qs("[data-line-link-monitor]");
+    const qrBox = qs("[data-line-qr-box]");
     if (!codeField && !refreshButton && !monitorRoot) return;
+
+    const renderQrImage = (qrDataUri) => {
+      if (!qrBox || !qrDataUri) return;
+
+      let qrImage = qs("[data-line-qr-image]", qrBox);
+      if (!qrImage) {
+        qrBox.innerHTML = "";
+        qrImage = document.createElement("img");
+        qrImage.alt = "LINE official account QR code";
+        qrImage.className = "qr-image";
+        qrImage.setAttribute("data-line-qr-image", "");
+        qrBox.appendChild(qrImage);
+      }
+      qrImage.src = qrDataUri;
+    };
 
     const maybeLinkCode = async () => {
       const endpoint = refreshButton?.getAttribute("data-line-link-endpoint");
@@ -231,6 +247,7 @@
       try {
         const payload = await fetchJson(endpoint, { method: "POST" });
         if (codeField && payload.link_code) codeField.value = payload.link_code;
+        renderQrImage(payload.qr_data_uri);
         if (statusTarget) setStatus(statusTarget, "A new link code is ready.", "success");
       } catch (error) {
         console.error(error);

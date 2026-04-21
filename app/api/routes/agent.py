@@ -190,16 +190,22 @@ def preferences(request: Request, db: Session = Depends(get_db)):
     )
     line_state = _line_link_state(db, user.id, user.line_user_id)
     active_request = line_state["line_active_request"]
+    preferred_channel = preference.preferred_channel if preference else "EMAIL"
+    if preferred_channel == "LINE" and active_request is None and not line_state["line_connected"]:
+        active_request = generate_link_code(db, user=user)
+        line_state = _line_link_state(db, user.id, user.line_user_id)
+
     pending_assignments = _user_assignments(db, user.id, pending_only=True)
     line_qr = None
-    if active_request is not None and not line_state["line_connected"]:
-        line_qr = build_qr_data_uri(settings.line_official_account_qr_url or settings.line_official_account_url)
+    qr_payload = settings.line_official_account_qr_url or settings.line_official_account_url
+    if active_request is not None and not line_state["line_connected"] and qr_payload:
+        line_qr = build_qr_data_uri(qr_payload)
 
     context = {
         "page_title": "Preference Center",
         "saved": request.query_params.get("saved") == "1",
         "user": user,
-        "preferred_channel": preference.preferred_channel if preference else "EMAIL",
+        "preferred_channel": preferred_channel,
         "dnd_label": (
             f"Do not disturb {format_time_value(preference.dnd_start_time)} - {format_time_value(preference.dnd_end_time)}"
             if preference and preference.dnd_start_time and preference.dnd_end_time
@@ -233,7 +239,7 @@ def preferences(request: Request, db: Session = Depends(get_db)):
         "push_test_url": "/notifications/push/test",
         "push_local_test_label": "Show local notification",
         "dashboard_url": "/dashboard",
-        "preferred_channel_label": preference.preferred_channel if preference else "Email",
+        "preferred_channel_label": preferred_channel,
     }
 
     return render_or_json(

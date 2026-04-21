@@ -138,7 +138,13 @@
       <p class="field-hint" data-push-debug>Debug status: waiting for a push event.</p>
     </section>
     {% elif preferred_channel == "LINE" %}
-    <section class="panel stack" id="line">
+    <section
+      class="panel stack"
+      id="line"
+      data-line-link-monitor
+      data-line-status-endpoint="{{ line_status_url|default('/preferences/line/status') }}"
+      data-line-linked="{{ 'true' if line_connected else 'false' }}"
+    >
       <div class="preview-heading">
         <strong>LINE onboarding</strong>
         <span id="lineStatus" class="status-pill status-{{ line_status_tone|default('neutral') }}">{{ line_status|default("Not linked") }}</span>
@@ -155,12 +161,12 @@
         <a class="btn btn-primary" href="{{ line_connect_url|default('/preferences/line/connect') }}">View connection details</a>
       </div>
       {% else %}
-      <p class="field-hint">Add the official account as a friend, then send the one-time code to complete webhook linking.</p>
-      <div class="qr-box">
+      <p class="field-hint" data-line-link-status>Add the official account as a friend, then send the one-time code to complete webhook linking.</p>
+      <div class="qr-box" data-line-qr-box>
         {% if line_qr_data_uri %}
-        <img src="{{ line_qr_data_uri }}" alt="LINE official account QR code" class="qr-image" />
+        <img src="{{ line_qr_data_uri }}" alt="LINE official account QR code" class="qr-image" data-line-qr-image />
         {% else %}
-        <div class="qr-faux">
+        <div class="qr-faux" data-line-qr-faux>
           <span>QR</span>
         </div>
         {% endif %}
