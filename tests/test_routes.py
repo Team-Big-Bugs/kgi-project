@@ -350,6 +350,34 @@ class SchedulerAndAdminRoutesTest(RouteTestCase):
             self.assertEqual(dispatch.status, "sent")
             self.assertIsNotNone(dispatch.tracking_token)
 
+    def test_admin_dashboard_shows_conversion_tracking_summary(self):
+        admin = self.create_user(email="admin3@example.com", password="secret123", role="admin", name="Admin")
+        agent = self.create_user(email="agent3@example.com", password="secret123", role="agent", name="Lin Agent")
+        assignment = self.create_assignment(user_id=agent.id, module_title="Travel Insurance")
+        template = self.create_template(channel_type="PUSH", title_template="Peak learning nudge")
+        dispatch = self.create_dispatch(
+            agent_id=agent.id,
+            assignment_id=assignment.id,
+            template_id=template.template_id,
+            tracking_token="opened-token-1",
+            status="sent",
+        )
+
+        with self.SessionLocal() as db:
+            refreshed = db.get(DispatchLog, dispatch.dispatch_id)
+            refreshed.opened_timestamp = datetime.now(timezone.utc)
+            db.add(refreshed)
+            db.commit()
+
+        self.client.post("/auth/login", json={"email": admin.email, "password": "secret123"})
+
+        response = self.client.get("/admin/dashboard")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Successful conversion tracking", response.text)
+        self.assertIn("Open rate", response.text)
+        self.assertIn("Lin Agent", response.text)
+
 
 class TrackingAndWebhookRoutesTest(RouteTestCase):
     def test_preferences_page_handles_naive_line_link_expiry(self):

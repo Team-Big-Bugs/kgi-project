@@ -32,7 +32,49 @@
 <section class="card-grid">
   {{ stat_card("Queued", queued_count|default("12"), "Waiting to be sent by the dispatcher.", "accent") }}
   {{ stat_card("Sent today", sent_count|default("48"), "Delivery activity across push, email, and LINE.") }}
-  {{ stat_card("Opened", opened_count|default("21"), "Tracking tokens converted to opens.", "neutral") }}
+  {{ stat_card("Successful conversions", conversion_count|default("21"), "Tracking token clicks that returned to the app.", "neutral") }}
+  {{ stat_card("Open rate", open_rate|default("44%"), "Opened nudges divided by sent nudges for the current queue history.", "accent") }}
+</section>
+
+<section class="section">
+  <div class="section-header">
+    <div>
+      <h3 class="section-title">Successful conversion tracking</h3>
+      <p class="section-note">{{ conversion_summary|default("Tracking links are embedded in every channel payload so the admin can confirm who returned to the app.") }}</p>
+    </div>
+    <div class="cluster">
+      {{ badge((conversion_count|default("0")) ~ " opens", "success") }}
+      {{ badge(open_rate|default("0%") ~ " open rate", "soft") }}
+    </div>
+  </div>
+  {% if recent_conversions is defined and recent_conversions %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Agent</th>
+            <th>Template</th>
+            <th>Channel</th>
+            <th>Sent</th>
+            <th>Opened</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for conversion in recent_conversions %}
+          <tr class="table-row-compact">
+            <td>{{ conversion.agent_name|default("Lin Agent") }}</td>
+            <td>{{ conversion.template_name|default("Peak learning nudge") }}</td>
+            <td>{{ conversion.channel|default("PUSH") }}</td>
+            <td>{{ conversion.scheduled_dispatch_time|default("—") }}</td>
+            <td>{{ conversion.opened_timestamp|default("—") }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    {{ empty_state("No conversions yet", "Once an agent taps a tracking link from push, LINE, or email, the open event will appear here as a successful conversion.") }}
+  {% endif %}
 </section>
 
 <section class="section">

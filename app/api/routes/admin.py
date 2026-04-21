@@ -103,16 +103,45 @@ def _assignment_payloads(db: Session) -> list[dict]:
     ]
 
 
+def _conversion_payloads(db: Session) -> list[dict]:
+    dispatches = list(
+        db.scalars(
+            select(DispatchLog)
+            .where(DispatchLog.opened_timestamp.is_not(None))
+            .order_by(DispatchLog.opened_timestamp.desc())
+            .limit(5)
+        )
+    )
+    user_map = {user.id: user.name for user in db.scalars(select(User))}
+    template_map = {template.template_id: template.title_template for template in db.scalars(select(NotificationTemplate))}
+    payload = []
+    for dispatch in dispatches:
+        payload.append(
+            {
+                "dispatch_id": dispatch.dispatch_id,
+                "agent_name": user_map.get(dispatch.agent_id, f"Agent #{dispatch.agent_id}"),
+                "template_name": template_map.get(dispatch.template_id, f"Template #{dispatch.template_id}"),
+                "channel": dispatch.channel_type,
+                "opened_timestamp": dispatch.opened_timestamp,
+                "scheduled_dispatch_time": dispatch.scheduled_dispatch_time,
+            }
+        )
+    return payload
+
+
 @router.get("")
 @router.get("/")
 @router.get("/dashboard")
 def dashboard(request: Request, db: Session = Depends(get_db)):
     require_admin_user(request, db)
     summary = _summary(db)
+    sent_count = db.scalar(select(func.count(DispatchLog.dispatch_id)).where(DispatchLog.status == "sent")) or 0
     opened_count = db.scalar(
         select(func.count(DispatchLog.dispatch_id)).where(DispatchLog.opened_timestamp.is_not(None))
     ) or 0
+    open_rate = (opened_count / sent_count * 100) if sent_count else 0
     recent_dispatch = db.scalar(select(DispatchLog).order_by(DispatchLog.scheduled_dispatch_time.desc()))
+    recent_conversions = _conversion_payloads(db)
     context = {
         "page_title": "Admin Dashboard",
         "summary": summary,
@@ -124,8 +153,16 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             else "No dispatches yet"
         ),
         "queued_count": str(summary.queued_dispatches),
-        "sent_count": str(summary.sent_dispatches),
+        "sent_count": str(sent_count),
         "opened_count": str(opened_count),
+        "conversion_count": str(opened_count),
+        "open_rate": f"{open_rate:.0f}%",
+        "conversion_summary": (
+            f"{opened_count} of {sent_count} sent nudges converted to opens."
+            if sent_count
+            else "No sent nudges yet, so open rate is waiting for data."
+        ),
+        "recent_conversions": recent_conversions,
         "metrics": [
             {"label": "Agents", "value": summary.users, "note": "Seeded agents ready for demo."},
             {"label": "Templates", "value": summary.templates, "note": "Cross-channel message dictionary."},
@@ -139,7 +176,17 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         request,
         "admin/dashboard.html",
         context,
-        {"page": "admin-dashboard", "page_title": "Admin Dashboard", "summary": summary.model_dump(mode="json")},
+        {
+            "page": "admin-dashboard",
+            "page_title": "Admin Dashboard",
+            "summary": summary.model_dump(mode="json"),
+            "conversion": {
+                "sent_count": sent_count,
+                "opened_count": opened_count,
+                "open_rate": open_rate,
+                "recent_conversions": recent_conversions,
+            },
+        },
     )
 
 
