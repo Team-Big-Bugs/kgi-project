@@ -14,6 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from app.core.config import get_settings
 from app.db.models.dispatch_log import DispatchLog
+from app.db.models.learning_assignment import LearningAssignment
 from app.db.models.line_link_request import LineLinkRequest
 from app.db.models.user import User
 from app.db.models.web_push_subscription import WebPushSubscription
@@ -39,6 +40,11 @@ def parse_args() -> argparse.Namespace:
         "--reset-push",
         action="store_true",
         help="Delete saved web push subscriptions so the browser has to subscribe again.",
+    )
+    parser.add_argument(
+        "--reset-assignments",
+        action="store_true",
+        help="Mark the agent's assignments as pending again by clearing completed_at.",
     )
     return parser.parse_args()
 
@@ -91,6 +97,15 @@ def main() -> None:
                 db.query(WebPushSubscription).filter(WebPushSubscription.user_id == user.id).delete()
             )
 
+        reset_assignments = 0
+        if args.reset_assignments:
+            assignments = list(db.scalars(select(LearningAssignment).where(LearningAssignment.user_id == user.id)))
+            for assignment in assignments:
+                if assignment.completed_at is not None:
+                    assignment.completed_at = None
+                    db.add(assignment)
+                    reset_assignments += 1
+
         db.commit()
 
     reset_scope = "all dispatches" if args.all_dispatches else "today's dispatches"
@@ -98,7 +113,8 @@ def main() -> None:
         f"Reset complete for {args.email}: "
         f"deleted {deleted_dispatches} {reset_scope}, "
         f"deleted {deleted_line_requests} line link requests, "
-        f"deleted {deleted_push_subscriptions} push subscriptions."
+        f"deleted {deleted_push_subscriptions} push subscriptions, "
+        f"reset {reset_assignments} assignments to pending."
     )
     if args.reset_line:
         print("App-side LINE linking is cleared. If you want a true first-friend demo, also unfriend/block the OA in LINE.")
