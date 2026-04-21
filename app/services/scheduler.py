@@ -29,6 +29,7 @@ class SchedulerStats:
     failed: int = 0
     skipped_opt_out: int = 0
     skipped_dnd: int = 0
+    skipped_peak_window: int = 0
     skipped_duplicate: int = 0
 
 
@@ -96,6 +97,7 @@ def run_scheduler(db: Session, now_utc: datetime | None = None) -> SchedulerStat
             continue
 
         if not _within_peak_window(local_now, preference.peak_learning_time):
+            stats.skipped_peak_window += 1
             continue
 
         trigger_type = "spaced_repetition_due" if assignment.task_type == "memory_recall" else "bio_rhythm_peak"

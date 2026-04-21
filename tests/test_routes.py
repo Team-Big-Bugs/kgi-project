@@ -27,6 +27,7 @@ from app.db.models.learning_assignment import LearningAssignment
 from app.db.models.line_link_request import LineLinkRequest
 from app.db.models.notification_template import NotificationTemplate
 from app.db.models.user import User
+from app.db.models.web_push_subscription import WebPushSubscription
 from app.db.session import get_db
 from app.main import create_app
 from app.schemas.admin import SchedulerRunResponse
@@ -230,6 +231,67 @@ rOcvN6/oqLnbpPOajjznmhTyJn7xfJct1OsxSCbdF5nOcDaJK6bJAgMn
 
         self.assertIsInstance(resolved, web_push_module.Vapid01)
 
+    def test_web_push_sender_attempts_all_active_subscriptions(self):
+        tmpdir = tempfile.TemporaryDirectory()
+        db_path = Path(tmpdir.name) / "push-test.db"
+        engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
+        Base.metadata.create_all(engine)
+        session_local = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
+
+        try:
+            with session_local() as db:
+                user = User(email="multi-push@example.com", password_hash="hashed", role="agent", name="Push Agent")
+                db.add(user)
+                db.flush()
+                db.add_all(
+                    [
+                        WebPushSubscription(
+                            user_id=user.id,
+                            endpoint="https://push.example.com/sub-1",
+                            p256dh_key="key-1",
+                            auth_key="auth-1",
+                            is_active=True,
+                        ),
+                        WebPushSubscription(
+                            user_id=user.id,
+                            endpoint="https://push.example.com/sub-2",
+                            p256dh_key="key-2",
+                            auth_key="auth-2",
+                            is_active=True,
+                        ),
+                    ]
+                )
+                db.commit()
+                db.refresh(user)
+
+                with patch.object(
+                    web_push_module,
+                    "get_settings",
+                    return_value=SimpleNamespace(
+                        vapid_public_key="public-key",
+                        vapid_private_key="private-key",
+                        vapid_subject="mailto:test@example.com",
+                        app_base_url="https://example.com",
+                    ),
+                ), patch.object(web_push_module, "_resolve_vapid_private_key", return_value="private-key"), patch.object(
+                    web_push_module,
+                    "webpush",
+                    return_value=None,
+                ) as mocked_webpush:
+                    web_push_module.WebPushSender().send(
+                        db=db,
+                        user=user,
+                        title="Test",
+                        body="Body",
+                        tracking_url="/track/demo",
+                    )
+
+                self.assertEqual(mocked_webpush.call_count, 2)
+        finally:
+            Base.metadata.drop_all(engine)
+            engine.dispose()
+            tmpdir.cleanup()
+
 
 class SchedulerAndAdminRoutesTest(RouteTestCase):
     def test_manual_scheduler_route_returns_stats(self):
@@ -239,7 +301,16 @@ class SchedulerAndAdminRoutesTest(RouteTestCase):
         with patch.object(
             admin_routes,
             "run_scheduler",
-            return_value=SchedulerStats(considered=2, queued=1, sent=1, failed=0, skipped_opt_out=0, skipped_dnd=0, skipped_duplicate=0),
+            return_value=SchedulerStats(
+                considered=2,
+                queued=1,
+                sent=1,
+                failed=0,
+                skipped_opt_out=0,
+                skipped_dnd=0,
+                skipped_peak_window=0,
+                skipped_duplicate=0,
+            ),
         ):
             response = self.client.post("/admin/run-scheduler")
 
@@ -251,6 +322,7 @@ class SchedulerAndAdminRoutesTest(RouteTestCase):
             failed=0,
             skipped_opt_out=0,
             skipped_dnd=0,
+            skipped_peak_window=0,
             skipped_duplicate=0,
         ).model_dump(mode="json"))
 

@@ -60,6 +60,7 @@ class SchedulerRunResponse(BaseModel):
     failed: int
     skipped_opt_out: int
     skipped_dnd: int
+    skipped_peak_window: int
     skipped_duplicate: int
 
 

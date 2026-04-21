@@ -56,6 +56,7 @@ class WebPushSender:
             "url": f"{settings.app_base_url}{tracking_url}",
         }
         last_error: Exception | None = None
+        success_count = 0
 
         for subscription in subscriptions:
             if not subscription.endpoint or not subscription.p256dh_key or not subscription.auth_key:
@@ -78,7 +79,7 @@ class WebPushSender:
                 subscription.last_seen_at = datetime.now(timezone.utc)
                 db.add(subscription)
                 db.commit()
-                return
+                success_count += 1
             except WebPushException as exc:
                 last_error = exc
                 response = getattr(exc, "response", None)
@@ -99,6 +100,9 @@ class WebPushSender:
                 last_error = exc
                 logger.exception("Unexpected web push failure for user_id=%s endpoint=%s", user.id, subscription.endpoint)
 
+        if success_count:
+            logger.info("Web push dispatched to %s active subscription(s) for user_id=%s", success_count, user.id)
+            return
         if last_error is not None:
             raise RuntimeError(f"Web push failed: {last_error}") from last_error
         raise RuntimeError("Web push failed: no usable subscription could be delivered")
