@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "partials/macros.html" import badge %}
+{% from "partials/macros.html" import badge, empty_state %}
 {% set nav_mode = "agent" %}
 {% set current_page = "preferences" %}
 {% set page_title = page_title|default("Preference Center") %}
@@ -18,47 +18,20 @@
     </div>
   </div>
 
-  <div class="panel stack" id="push">
+  <div class="preview-panel">
     <div class="preview-heading">
-      <strong>Push setup</strong>
-      <span id="pushStatus" class="status-pill status-{{ push_status_tone|default('neutral') }}">{{ push_status_text|default("Not connected") }}</span>
+      <strong>Lock screen preview</strong>
+      <span class="status-pill status-neutral">Smart payload</span>
     </div>
-    <p class="field-hint" data-push-permission-hint>Use the button below to request browser permission and register the service worker.</p>
-    <div class="page-actions">
-      <button
-        type="button"
-        class="btn btn-primary"
-        data-push-enable
-        data-status-target="#pushStatus"
-        data-vapid-url="{{ vapid_public_key_url|default('/push/vapid-public-key') }}"
-        data-subscribe-endpoint="{{ push_subscribe_url|default('/push/subscribe') }}"
-      >
-        Enable Push
-      </button>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-push-test
-        data-status-target="#pushStatus"
-        data-test-endpoint="{{ push_test_url|default('/notifications/push/test') }}"
-      >
-        Send test push
-      </button>
-      <button
-        type="button"
-        class="btn btn-secondary"
-        data-push-local-test
-        data-status-target="#pushStatus"
-      >
-        {{ push_local_test_label|default("Show local notification") }}
-      </button>
-      <a class="btn btn-secondary" href="{{ push_details_url|default('/preferences#push') }}">Setup details</a>
+    <div class="preview-message">
+      <h3>Hey <span data-preview-agent-name>{{ agent_name|default("Lin") }}</span>, your <span data-preview-module-title>{{ module_title|default("Travel Insurance") }}</span> module is almost due.</h3>
+      <p>Spend 7 minutes before your <span data-preview-peak-window>{{ peak_learning_time|default("09:00") }}</span> window closes. Channel: <span data-preview-channel>{{ preferred_channel|default("LINE") }}</span>.</p>
     </div>
-    <div class="field-hint">
-      <strong>Setup details</strong>
-      <p>1. Allow browser notifications. 2. Register the service worker. 3. Save a push subscription to your account. 4. Send a local test push to verify delivery.</p>
+    <div class="cluster">
+      <span class="template-token">{{ "{{agent_name}}" }}</span>
+      <span class="template-token">{{ "{{module_title}}" }}</span>
+      <span class="template-token">{{ "{{peak_learning_time}}" }}</span>
     </div>
-    <p class="field-hint" data-push-debug>Debug status: waiting for a push event.</p>
   </div>
 </section>
 
@@ -72,8 +45,8 @@
     {% endif %}
     <div class="section-header">
       <div>
-        <h3 class="section-title">Rules of engagement</h3>
-        <p class="section-note">The scheduler reads this section before deciding whether to dispatch a nudge.</p>
+        <h3 class="section-title">Delivery rules</h3>
+        <p class="section-note">This is the minimum setup the scheduler needs before it decides whether to send a nudge.</p>
       </div>
     </div>
 
@@ -84,7 +57,7 @@
         <option value="EMAIL" {% if preferred_channel == "EMAIL" %}selected{% endif %}>Email</option>
         <option value="LINE" {% if preferred_channel == "LINE" %}selected{% endif %}>LINE App Integration</option>
       </select>
-      <p class="field-hint">Agents in Taiwan can switch channels depending on how quickly they want to notice the reminder.</p>
+      <p class="field-hint">Save after changing this value so the setup panel on the right matches the channel you want to test.</p>
     </div>
 
     <div class="grid-2">
@@ -122,11 +95,54 @@
   </form>
 
   <div class="stack">
+    {% if preferred_channel == "PUSH" %}
+    <section class="panel stack" id="push">
+      <div class="preview-heading">
+        <strong>Push setup</strong>
+        <span id="pushStatus" class="status-pill status-{{ push_status_tone|default('neutral') }}">{{ push_status_text|default("Not connected") }}</span>
+      </div>
+      <p class="field-hint" data-push-permission-hint>Request browser permission, register the service worker, and confirm delivery with a test push.</p>
+      <div class="page-actions">
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-push-enable
+          data-status-target="#pushStatus"
+          data-vapid-url="{{ vapid_public_key_url|default('/push/vapid-public-key') }}"
+          data-subscribe-endpoint="{{ push_subscribe_url|default('/push/subscribe') }}"
+        >
+          Enable Push
+        </button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-push-test
+          data-status-target="#pushStatus"
+          data-test-endpoint="{{ push_test_url|default('/notifications/push/test') }}"
+        >
+          Send test push
+        </button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-push-local-test
+          data-status-target="#pushStatus"
+        >
+          {{ push_local_test_label|default("Show local notification") }}
+        </button>
+      </div>
+      <div class="field-hint">
+        <strong>Push checklist</strong>
+        <p>1. Allow browser notifications. 2. Register the service worker. 3. Save the subscription. 4. Test the push payload.</p>
+      </div>
+      <p class="field-hint" data-push-debug>Debug status: waiting for a push event.</p>
+    </section>
+    {% elif preferred_channel == "LINE" %}
     <section class="panel stack" id="line">
       <div class="preview-heading">
-      <strong>LINE onboarding</strong>
-      <span id="lineStatus" class="status-pill status-{{ line_status_tone|default('neutral') }}">{{ line_status|default("Not linked") }}</span>
-    </div>
+        <strong>LINE onboarding</strong>
+        <span id="lineStatus" class="status-pill status-{{ line_status_tone|default('neutral') }}">{{ line_status|default("Not linked") }}</span>
+      </div>
       {% if line_connected %}
       <div class="alert alert-success stack">
         <h3>LINE is ready for delivery</h3>
@@ -139,7 +155,7 @@
         <a class="btn btn-primary" href="{{ line_connect_url|default('/preferences/line/connect') }}">View connection details</a>
       </div>
       {% else %}
-      <p class="field-hint">Show the official account QR code, let the agent add it as a friend, and complete linking with a one-time code.</p>
+      <p class="field-hint">Add the official account as a friend, then send the one-time code to complete webhook linking.</p>
       <div class="qr-box">
         {% if line_qr_data_uri %}
         <img src="{{ line_qr_data_uri }}" alt="LINE official account QR code" class="qr-image" />
@@ -154,25 +170,22 @@
         <button type="button" class="btn btn-secondary" data-copy="#lineLinkCode">Copy code</button>
         <button type="button" class="btn btn-primary" data-line-link-refresh data-line-link-endpoint="{{ line_link_refresh_url|default('/preferences/line/link/start') }}">Refresh</button>
       </div>
-      <p class="field-hint">After adding the official account, the agent sends this code to the bot and the webhook attaches the LINE user ID.</p>
+      <p class="field-hint">After adding the official account, send this code to the bot and the webhook will attach the LINE user ID.</p>
       {% endif %}
     </section>
-
-    <section class="preview-panel" data-preview-root>
+    {% else %}
+    <section class="panel stack">
       <div class="preview-heading">
-        <strong>Nudge preview</strong>
-        <span class="status-pill status-neutral">Live template</span>
+        <strong>Email delivery</strong>
+        <span class="status-pill status-success">Ready</span>
       </div>
-      <div class="preview-message">
-        <h3>Hey <span data-preview-agent-name>{{ agent_name|default("Lin") }}</span>, your <span data-preview-module-title>{{ module_title|default("Travel Insurance") }}</span> module is almost due.</h3>
-        <p>Spend 7 minutes before your <span data-preview-peak-window>{{ peak_learning_time|default("09:00") }}</span> window closes. Channel: <span data-preview-channel>{{ preferred_channel|default("LINE") }}</span>.</p>
-      </div>
-      <div class="cluster">
-        <span class="template-token">{{ "{{agent_name}}" }}</span>
-        <span class="template-token">{{ "{{module_title}}" }}</span>
-        <span class="template-token">{{ "{{peak_learning_time}}" }}</span>
+      <p class="field-hint">Email does not need extra browser or LINE setup, so it is a safe fallback channel for the demo.</p>
+      <div class="field-hint">
+        <strong>When to use it</strong>
+        <p>Choose Email if you want the scheduler demo to focus on timing and tracking without extra device setup.</p>
       </div>
     </section>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

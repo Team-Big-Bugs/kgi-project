@@ -4,13 +4,7 @@
   <div class="nav-group">
     {{ nav_link("Dashboard", dashboard_url|default("/dashboard"), current == "dashboard", "AG", "Today at a glance") }}
     {{ nav_link("Preferences", preferences_url|default("/preferences"), current == "preferences", "PR", "Channels and DND") }}
-    {{ nav_link("Assignments", assignments_url|default("/assignments"), current == "assignments", "AS", "Due learning items") }}
     {{ nav_link("History", history_url|default("/history"), current == "history", "HI", "Sent nudges and opens") }}
-  </div>
-  <div class="nav-group">
-    <p class="nav-caption">Channels</p>
-    {{ nav_link("Push Setup", push_setup_url|default("/preferences#push"), current == "push_setup", "PU", "Browser permission") }}
-    {{ nav_link("LINE Connect", line_connect_url|default("/preferences/line/connect"), current == "line_connect", "LN", "Friend and link flow") }}
   </div>
   <div class="nav-group">
     <p class="nav-caption">Status</p>

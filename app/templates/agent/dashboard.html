@@ -49,64 +49,22 @@
 <section class="section">
   <div class="section-header">
     <div>
-      <h3 class="section-title">Next actions</h3>
-      <p class="section-note">The app should tell the agent exactly what to do next with a clear path back into learning.</p>
+      <h3 class="section-title">Next action</h3>
+      <p class="section-note">Keep one clear action front and center so the nudge feels actionable in a busy day.</p>
     </div>
   </div>
-  <div class="grid-2">
-    <article class="panel stack">
-      <div class="cluster">
-        {{ badge("Recommended", "primary") }}
-        {{ badge("7 minutes", "soft") }}
-      </div>
-      <h4 class="section-title">Travel Insurance refresh</h4>
-      <p class="page-subtitle">A short scenario-based review that reinforces the upcoming spaced repetition checkpoint.</p>
-      <div class="page-actions">
-        <a class="btn btn-primary" href="{{ assignment_url|default('/assignments/1') }}">Open module</a>
-        <a class="btn btn-secondary" href="{{ history_url|default('/history') }}">See past nudges</a>
-      </div>
-    </article>
-
-    <article class="panel stack">
-      <div class="cluster">
-        {{ badge("Channel health", "soft") }}
-        {{ badge(channel_status|default("Ready"), "success") }}
-      </div>
-      <h4 class="section-title">Delivery setup</h4>
-      <ul class="feature-list">
-        <li>Push subscription status can be checked from the preference center.</li>
-        <li>LINE requires friend setup and webhook linking before messages can be sent.</li>
-        <li>Email remains a safe fallback if a richer channel is not available.</li>
-      </ul>
-    </article>
-  </div>
-</section>
-
-<section class="section">
-  <div class="section-header">
-    <div>
-      <h3 class="section-title">Upcoming nudges</h3>
-      <p class="section-note">These cards can be filled by the scheduler later. For now they keep the demo story alive.</p>
+  <article class="panel stack">
+    <div class="cluster">
+      {{ badge("Recommended now", "primary") }}
+      {{ badge("7 minutes", "soft") }}
     </div>
-  </div>
-  {% if upcoming_nudges is defined and upcoming_nudges %}
-    <div class="timeline">
-      {% for nudge in upcoming_nudges %}
-      <article class="timeline-item">
-        <div class="timeline-meta">
-          <strong>{{ nudge.title|default("Learning nudge") }}</strong>
-          <span>{{ nudge.scheduled_at|default("10:45") }}</span>
-        </div>
-        <p>{{ nudge.description|default("A concise reminder tied to peak learning timing.") }}</p>
-        <div class="cluster">
-          {{ badge(nudge.channel|default("LINE"), "primary") }}
-          {{ badge(nudge.status|default("Queued"), "soft") }}
-        </div>
-      </article>
-      {% endfor %}
+    <h4 class="section-title">{{ module_title|default("Travel Insurance refresh") }}</h4>
+    <p class="page-subtitle">Open the next due module or recall quiz, then come back for tracking and channel history if you need it.</p>
+    <div class="page-actions">
+      <a class="btn btn-primary" href="{{ assignment_url|default('/assignments/1') }}">Open module</a>
+      <a class="btn btn-secondary" href="{{ preferences_url|default('/preferences') }}">Check channel settings</a>
+      <a class="btn btn-secondary" href="{{ history_url|default('/history') }}">Recent activity</a>
     </div>
-  {% else %}
-    {{ empty_state("Nothing queued yet", "Once the scheduler is wired, due modules and recall quizzes will appear here.") }}
-  {% endif %}
+  </article>
 </section>
 {% endblock %}
