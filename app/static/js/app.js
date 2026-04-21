@@ -221,7 +221,8 @@
     const codeField = qs("[data-line-link-code]");
     const refreshButton = qs("[data-line-link-refresh]");
     const statusTarget = qs("[data-line-link-status]");
-    if (!codeField && !refreshButton) return;
+    const monitorRoot = qs("[data-line-link-monitor]");
+    if (!codeField && !refreshButton && !monitorRoot) return;
 
     const maybeLinkCode = async () => {
       const endpoint = refreshButton?.getAttribute("data-line-link-endpoint");
@@ -238,6 +239,36 @@
     };
 
     refreshButton?.addEventListener("click", maybeLinkCode);
+
+    const statusEndpoint = monitorRoot?.getAttribute("data-line-status-endpoint");
+    const lineStatusPill = qs("#lineLinkStatus");
+    const preferencesLineStatus = qs("#lineStatus");
+    const alreadyLinked = monitorRoot?.getAttribute("data-line-linked") === "true";
+    if (!statusEndpoint || alreadyLinked) return;
+
+    let completed = false;
+    const pollStatus = async () => {
+      if (completed) return;
+
+      try {
+        const payload = await fetchJson(statusEndpoint, { method: "GET" });
+        if (!payload.linked) return;
+
+        completed = true;
+        setStatus(lineStatusPill, "Linked", "success");
+        setStatus(preferencesLineStatus, payload.line_status || "Linked", payload.line_status_tone || "success");
+        if (statusTarget) {
+          const masked = payload.masked_line_user_id ? ` (${payload.masked_line_user_id})` : "";
+          statusTarget.textContent = `LINE linked successfully${masked}. Refreshing this page to show the ready state.`;
+        }
+        window.setTimeout(() => window.location.reload(), 1200);
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    window.setTimeout(pollStatus, 1500);
+    window.setInterval(pollStatus, 4000);
   };
 
   const registerNotificationPreview = () => {

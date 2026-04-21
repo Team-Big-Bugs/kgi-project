@@ -12,22 +12,36 @@
     <h2 class="page-title">Friend first, link second.</h2>
     <p class="page-subtitle">This flow is designed for Taiwan users: scan the official account QR code, add the bot, then send the one-time code.</p>
     <div class="cluster">
-      {{ badge(line_status|default("Awaiting link"), "accent") }}
+      {{ badge(line_status|default("Awaiting link"), line_status_tone|default("accent")) }}
       {{ badge(webhook_status|default("Webhook ready"), "primary") }}
     </div>
   </div>
 
-  <div class="panel stack">
+  <div class="panel stack" data-line-link-monitor data-line-status-endpoint="{{ line_status_url|default('/preferences/line/status') }}" data-line-linked="{{ 'true' if line_connected else 'false' }}">
     <div class="preview-heading">
       <strong>Link code</strong>
-      <span id="lineLinkStatus" class="status-pill status-neutral">Idle</span>
+      <span id="lineLinkStatus" class="status-pill status-{{ 'success' if line_connected else 'neutral' }}">{{ "Linked" if line_connected else "Watching for webhook" }}</span>
     </div>
+    {% if line_connected %}
+    <div class="alert alert-success stack">
+      <h3>LINE account connected</h3>
+      <p data-line-link-status>{% if line_masked_user_id %}Connected to {{ line_masked_user_id }}.{% else %}The webhook linked your LINE account successfully.{% endif %}</p>
+      {% if line_linked_at %}
+      <p class="field-hint">Confirmed at {{ line_linked_at }}</p>
+      {% endif %}
+    </div>
+    <div class="page-actions">
+      <a class="btn btn-primary" href="{{ preferences_url|default('/preferences') }}">Back to preferences</a>
+      <a class="btn btn-secondary" href="{{ official_account_url|default('#') }}" target="_blank" rel="noreferrer">Open official account</a>
+    </div>
+    {% else %}
     <div class="copy-row">
       <input id="lineLinkCodeField" class="copy-field" type="text" readonly value="{{ line_link_code|default('NUDGE-4821') }}" data-line-link-code />
       <button type="button" class="btn btn-secondary" data-copy="#lineLinkCodeField">Copy</button>
       <button type="button" class="btn btn-primary" data-line-link-refresh data-line-link-endpoint="{{ line_link_refresh_url|default('/line/link/start') }}">Refresh</button>
     </div>
     <p class="field-hint" data-line-link-status>The webhook will map the sender’s LINE user ID to the logged-in app account after the code is received.</p>
+    {% endif %}
   </div>
 </section>
 
@@ -40,9 +54,15 @@
     {% endif %}
     <h3 class="section-title">Setup steps</h3>
     <ol class="step-list">
+      {% if line_connected %}
+      <li>Friending and code verification are complete.</li>
+      <li>The linked account is now ready for future LINE nudges.</li>
+      <li>Return to Preferences to keep LINE as the primary channel.</li>
+      {% else %}
       <li>Open the official account QR code and add it as a friend.</li>
       <li>Copy the one-time link code from this screen.</li>
       <li>Send the code back to the official account and wait for confirmation.</li>
+      {% endif %}
     </ol>
     <div class="alert alert-info">
       <h3>No secrets exposed</h3>

@@ -359,6 +359,27 @@ class TrackingAndWebhookRoutesTest(RouteTestCase):
             self.assertEqual(refreshed_user.line_user_id, "U123456789")
             self.assertEqual(refreshed_request.status, "linked")
 
+    def test_line_status_endpoint_reports_linked_user(self):
+        user = self.create_user(email="line-status@example.com", password="secret123", role="agent", name="Line Status")
+        with self.SessionLocal() as db:
+            link_request = generate_link_code(db, user=user)
+            db.refresh(link_request)
+            refreshed_user = db.get(User, user.id)
+            refreshed_user.line_user_id = "U123456789ABCDE"
+            link_request.status = "linked"
+            link_request.consumed_at = datetime.now(timezone.utc)
+            db.add_all([refreshed_user, link_request])
+            db.commit()
+
+        self.client.post("/auth/login", json={"email": user.email, "password": "secret123"})
+
+        response = self.client.get("/preferences/line/status")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()["linked"])
+        self.assertEqual(response.json()["line_status"], "Linked")
+        self.assertEqual(response.json()["masked_line_user_id"], "U12345...BCDE")
+
 
 class PreferencesAndPushRoutesTest(RouteTestCase):
     def test_preferences_save_redirects_with_success_flag(self):

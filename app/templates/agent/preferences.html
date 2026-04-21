@@ -125,8 +125,20 @@
     <section class="panel stack" id="line">
       <div class="preview-heading">
       <strong>LINE onboarding</strong>
-      <span id="lineStatus" class="status-pill status-{{ 'success' if line_status == 'Linked' else 'neutral' }}">{{ line_status|default("Not linked") }}</span>
+      <span id="lineStatus" class="status-pill status-{{ line_status_tone|default('neutral') }}">{{ line_status|default("Not linked") }}</span>
     </div>
+      {% if line_connected %}
+      <div class="alert alert-success stack">
+        <h3>LINE is ready for delivery</h3>
+        <p>Notifications can now go to your linked LINE account{% if line_masked_user_id %} ({{ line_masked_user_id }}){% endif %}.</p>
+        {% if line_linked_at %}
+        <p class="field-hint">Linked at {{ line_linked_at }}</p>
+        {% endif %}
+      </div>
+      <div class="page-actions">
+        <a class="btn btn-primary" href="{{ line_connect_url|default('/preferences/line/connect') }}">View connection details</a>
+      </div>
+      {% else %}
       <p class="field-hint">Show the official account QR code, let the agent add it as a friend, and complete linking with a one-time code.</p>
       <div class="qr-box">
         {% if line_qr_data_uri %}
@@ -143,6 +155,7 @@
         <button type="button" class="btn btn-primary" data-line-link-refresh data-line-link-endpoint="{{ line_link_refresh_url|default('/preferences/line/link/start') }}">Refresh</button>
       </div>
       <p class="field-hint">After adding the official account, the agent sends this code to the bot and the webhook attaches the LINE user ID.</p>
+      {% endif %}
     </section>
 
     <section class="preview-panel" data-preview-root>

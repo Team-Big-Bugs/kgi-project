@@ -93,6 +93,33 @@ def _active_link_request(db: Session, user_id: int) -> LineLinkRequest | None:
     return None
 
 
+def _mask_line_user_id(line_user_id: str | None) -> str | None:
+    if not line_user_id:
+        return None
+    if len(line_user_id) <= 10:
+        return line_user_id
+    return f"{line_user_id[:6]}...{line_user_id[-4:]}"
+
+
+def _line_link_state(db: Session, user_id: int, line_user_id: str | None) -> dict:
+    latest_request = _latest_link_request(db, user_id)
+    active_request = _active_link_request(db, user_id)
+    linked = bool(line_user_id)
+    linked_at = None
+    if latest_request and latest_request.status == "linked":
+        linked_at = latest_request.consumed_at or latest_request.updated_at
+
+    return {
+        "line_connected": linked,
+        "line_status": "Linked" if linked else "Not linked",
+        "line_status_tone": "success" if linked else "neutral",
+        "line_masked_user_id": _mask_line_user_id(line_user_id),
+        "line_linked_at": linked_at,
+        "line_active_request": active_request,
+        "line_latest_request": latest_request,
+    }
+
+
 def _dashboard_context(user, preference: AgentPreference | None, assignments: list[LearningAssignment], dispatches: list[DispatchLog]) -> dict:
     next_assignment = assignments[0] if assignments else None
     peak_window = format_time_value(preference.peak_learning_time) if preference else settings.default_peak_learning_time
@@ -161,10 +188,11 @@ def preferences(request: Request, db: Session = Depends(get_db)):
             WebPushSubscription.is_active.is_(True),
         )
     )
-    active_request = _active_link_request(db, user.id)
+    line_state = _line_link_state(db, user.id, user.line_user_id)
+    active_request = line_state["line_active_request"]
     pending_assignments = _user_assignments(db, user.id, pending_only=True)
     line_qr = None
-    if active_request is not None:
+    if active_request is not None and not line_state["line_connected"]:
         line_qr = build_qr_data_uri(settings.line_official_account_qr_url or settings.line_official_account_url)
 
     context = {
@@ -186,7 +214,11 @@ def preferences(request: Request, db: Session = Depends(get_db)):
         "dnd_end_time": format_time_value(preference.dnd_end_time) if preference else settings.default_dnd_end_time,
         "is_opted_out": preference.is_opted_out if preference else False,
         "peak_learning_time": format_time_value(preference.peak_learning_time) if preference else settings.default_peak_learning_time,
-        "line_status": "Linked" if user.line_user_id else "Not linked",
+        "line_status": line_state["line_status"],
+        "line_status_tone": line_state["line_status_tone"],
+        "line_connected": line_state["line_connected"],
+        "line_masked_user_id": line_state["line_masked_user_id"],
+        "line_linked_at": line_state["line_linked_at"],
         "push_status_text": "Connected" if active_push else "Not connected",
         "push_status_tone": "success" if active_push else "neutral",
         "agent_name": user.name,
@@ -194,6 +226,7 @@ def preferences(request: Request, db: Session = Depends(get_db)):
         "line_link_code": active_request.link_code if active_request else "",
         "line_link_refresh_url": "/preferences/line/link/start",
         "line_connect_url": "/preferences/line/connect",
+        "line_status_url": "/preferences/line/status",
         "line_qr_data_uri": line_qr,
         "vapid_public_key_url": "/notifications/push/public-key",
         "push_subscribe_url": "/notifications/push/subscribe",
@@ -270,18 +303,25 @@ async def update_preferences(request: Request, db: Session = Depends(get_db)):
 @router.get("/line/connect")
 def line_connect(request: Request, db: Session = Depends(get_db)):
     user = require_user(request, db)
-    active_request = _active_link_request(db, user.id)
-    if active_request is None:
+    line_state = _line_link_state(db, user.id, user.line_user_id)
+    active_request = line_state["line_active_request"]
+    if active_request is None and not line_state["line_connected"]:
         active_request = generate_link_code(db, user=user)
+        line_state = _line_link_state(db, user.id, user.line_user_id)
 
     qr_payload = settings.line_official_account_qr_url or settings.line_official_account_url
     context = {
         "page_title": "LINE Connection",
-        "line_status": "Linked" if user.line_user_id else "Awaiting link",
+        "line_status": "Linked" if line_state["line_connected"] else "Awaiting link",
+        "line_status_tone": "success" if line_state["line_connected"] else "accent",
+        "line_connected": line_state["line_connected"],
+        "line_masked_user_id": line_state["line_masked_user_id"],
+        "line_linked_at": line_state["line_linked_at"],
         "webhook_status": "Webhook ready",
-        "line_link_code": active_request.link_code,
+        "line_link_code": active_request.link_code if active_request else "",
         "line_link_refresh_url": "/preferences/line/link/start",
-        "qr_data_uri": build_qr_data_uri(qr_payload),
+        "line_status_url": "/preferences/line/status",
+        "qr_data_uri": build_qr_data_uri(qr_payload) if not line_state["line_connected"] else None,
         "official_account_url": settings.line_official_account_url,
         "preferences_url": "/preferences",
     }
@@ -300,6 +340,23 @@ def line_connect(request: Request, db: Session = Depends(get_db)):
             },
         },
     )
+
+
+@router.get("/preferences/line/status")
+def line_status(request: Request, db: Session = Depends(get_db)):
+    user = require_user(request, db)
+    line_state = _line_link_state(db, user.id, user.line_user_id)
+    active_request = line_state["line_active_request"]
+
+    return {
+        "ok": True,
+        "linked": line_state["line_connected"],
+        "line_status": line_state["line_status"],
+        "line_status_tone": line_state["line_status_tone"],
+        "masked_line_user_id": line_state["line_masked_user_id"],
+        "linked_at": line_state["line_linked_at"],
+        "active_link_code": active_request.link_code if active_request else None,
+    }
 
 
 @router.post("/preferences/line/link/start")
