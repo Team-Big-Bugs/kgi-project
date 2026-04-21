@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+from urllib.parse import urljoin
 
 from py_vapid import Vapid01
 from pywebpush import WebPushException, webpush
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import get_settings
+from app.core.config import get_settings, normalize_base_url
 from app.core.logging import get_logger
 from app.db.models.user import User
 from app.db.models.web_push_subscription import WebPushSubscription
@@ -53,7 +54,7 @@ class WebPushSender:
         payload = {
             "title": title,
             "body": body,
-            "url": f"{settings.app_base_url}{tracking_url}",
+            "url": urljoin(f"{normalize_base_url(settings.app_base_url)}/", tracking_url.lstrip("/")),
         }
         last_error: Exception | None = None
         success_count = 0

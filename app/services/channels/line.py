@@ -3,10 +3,11 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
+from urllib.parse import urljoin
 
 import httpx
 
-from app.core.config import get_settings
+from app.core.config import get_settings, normalize_base_url
 from app.core.logging import get_logger
 from app.db.models.user import User
 
@@ -88,9 +89,8 @@ class LineSender:
 
     @staticmethod
     def _build_message_text(*, title: str, body: str, tracking_url: str, app_base_url: str) -> str:
-        base_url = app_base_url.rstrip("/")
-        suffix = tracking_url if tracking_url.startswith("/") else f"/{tracking_url}"
-        return f"{title.strip()}\n{body.strip()}\n\nOpen: {base_url}{suffix}"
+        absolute_url = urljoin(f"{normalize_base_url(app_base_url)}/", tracking_url.lstrip("/"))
+        return f"{title.strip()}\n{body.strip()}\n\nOpen: {absolute_url}"
 
     @staticmethod
     def _format_http_error(response: httpx.Response) -> str:

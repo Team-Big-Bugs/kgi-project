@@ -18,7 +18,7 @@ from sqlalchemy.orm import sessionmaker
 import app.db.models  # noqa: F401
 from app.api.routes import admin as admin_routes
 from app.api.routes import webhooks as webhooks_routes
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.core.security import hash_password
 from app.db.base import Base
 from app.db.models.agent_preference import AgentPreference
@@ -220,6 +220,11 @@ class AuthRoutesTest(RouteTestCase):
 
 
 class WebPushConfigTest(unittest.TestCase):
+    def test_settings_normalize_app_base_url_without_scheme(self):
+        settings = Settings(app_base_url="kgi-project-production.up.railway.app")
+
+        self.assertEqual(settings.app_base_url, "https://kgi-project-production.up.railway.app")
+
     def test_resolve_vapid_private_key_accepts_pem_content(self):
         pem_value = """-----BEGIN PRIVATE KEY-----
 MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQg9PK8TU5v/KdtGL8W
@@ -271,7 +276,7 @@ rOcvN6/oqLnbpPOajjznmhTyJn7xfJct1OsxSCbdF5nOcDaJK6bJAgMn
                         vapid_public_key="public-key",
                         vapid_private_key="private-key",
                         vapid_subject="mailto:test@example.com",
-                        app_base_url="https://example.com",
+                        app_base_url="example.com",
                     ),
                 ), patch.object(web_push_module, "_resolve_vapid_private_key", return_value="private-key"), patch.object(
                     web_push_module,
@@ -287,6 +292,8 @@ rOcvN6/oqLnbpPOajjznmhTyJn7xfJct1OsxSCbdF5nOcDaJK6bJAgMn
                     )
 
                 self.assertEqual(mocked_webpush.call_count, 2)
+                first_payload = json.loads(mocked_webpush.call_args_list[0].kwargs["data"])
+                self.assertEqual(first_payload["url"], "https://example.com/track/demo")
         finally:
             Base.metadata.drop_all(engine)
             engine.dispose()

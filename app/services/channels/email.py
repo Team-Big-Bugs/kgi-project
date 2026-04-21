@@ -3,8 +3,9 @@ from __future__ import annotations
 import smtplib
 from email.message import EmailMessage
 from email.utils import formataddr
+from urllib.parse import urljoin
 
-from app.core.config import get_settings
+from app.core.config import get_settings, normalize_base_url
 from app.core.logging import get_logger
 from app.db.models.user import User
 
@@ -45,6 +46,4 @@ class EmailSender:
 
     @staticmethod
     def _build_tracking_link(app_base_url: str, tracking_url: str) -> str:
-        base_url = app_base_url.rstrip("/")
-        suffix = tracking_url if tracking_url.startswith("/") else f"/{tracking_url}"
-        return f"{base_url}{suffix}"
+        return urljoin(f"{normalize_base_url(app_base_url)}/", tracking_url.lstrip("/"))

@@ -1,11 +1,27 @@
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from pydantic import EmailStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]
+
+
+def normalize_base_url(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        return "http://127.0.0.1:8000"
+    if "://" not in normalized:
+        normalized = f"https://{normalized.lstrip('/')}"
+
+    parts = urlsplit(normalized)
+    scheme = parts.scheme or "https"
+    netloc = parts.netloc or parts.path
+    path = parts.path if parts.netloc else ""
+    path = path.rstrip("/")
+    return urlunsplit((scheme, netloc, path, "", ""))
 
 
 class Settings(BaseSettings):
@@ -55,6 +71,11 @@ class Settings(BaseSettings):
     nudge_lead_minutes: int = 15
     link_code_expiry_minutes: int = 20
     seed_now_offset_minutes: int = 10
+
+    @field_validator("app_base_url", mode="before")
+    @classmethod
+    def normalize_app_base_url(cls, value: str) -> str:
+        return normalize_base_url(value)
 
     @field_validator(
         "smtp_host",
