@@ -38,5 +38,6 @@
 <section class="card-grid">
   {{ stat_card("Due now", due_count|default("1"), "Mandatory module or recall quiz waiting.", "accent") }}
   {{ stat_card("Preferred channel", preferred_channel|default("LINE"), "Push, email, or LINE can be changed anytime.") }}
+  {{ stat_card("Peak learning hour", peak_window|default("09:00"), "The scheduler starts nudging 15 minutes before this time.") }}
 </section>
 {% endblock %}
