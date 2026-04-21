@@ -61,6 +61,7 @@ class SchedulerRunResponse(BaseModel):
     skipped_opt_out: int
     skipped_dnd: int
     skipped_peak_window: int
+    skipped_active_nudge: int
     skipped_duplicate: int
 
 

@@ -30,6 +30,7 @@ class SchedulerStats:
     skipped_opt_out: int = 0
     skipped_dnd: int = 0
     skipped_peak_window: int = 0
+    skipped_active_nudge: int = 0
     skipped_duplicate: int = 0
 
 
@@ -58,6 +59,11 @@ def _dispatch_dedupe_key(*, agent_id: int, assignment_id: int, channel_type: str
     return f"{agent_id}:{assignment_id}:{channel_type}:{scheduled_date}"
 
 
+def _assignment_priority(assignment: LearningAssignment) -> tuple[int, datetime]:
+    task_priority = 0 if assignment.task_type == "mandatory_module" else 1
+    return (task_priority, assignment.due_at)
+
+
 def query_due_assignments(db: Session, now_utc: datetime | None = None) -> list[LearningAssignment]:
     current = now_utc or datetime.now(timezone.utc)
     stmt: Select[tuple[LearningAssignment]] = (
@@ -79,10 +85,23 @@ def run_scheduler(db: Session, now_utc: datetime | None = None) -> SchedulerStat
         for template in db.scalars(select(NotificationTemplate).where(NotificationTemplate.is_active.is_(True)))
     }
 
-    for assignment in query_due_assignments(db, current):
+    due_assignments = query_due_assignments(db, current)
+    assignments_by_agent: dict[int, list[LearningAssignment]] = {}
+    for assignment in due_assignments:
+        if assignment.user is None:
+            stats.considered += 1
+            stats.failed += 1
+            continue
+        assignments_by_agent.setdefault(assignment.user.id, []).append(assignment)
+
+    local_date = local_now.strftime("%Y-%m-%d")
+
+    for user_assignments in assignments_by_agent.values():
+        user_assignments.sort(key=_assignment_priority)
+        assignment = user_assignments[0]
         user = assignment.user
         preference = user.preference if user else None
-        stats.considered += 1
+        stats.considered += len(user_assignments)
 
         if not user or not preference:
             stats.failed += 1
@@ -100,30 +119,56 @@ def run_scheduler(db: Session, now_utc: datetime | None = None) -> SchedulerStat
             stats.skipped_peak_window += 1
             continue
 
-        trigger_type = "spaced_repetition_due" if assignment.task_type == "memory_recall" else "bio_rhythm_peak"
-        template = templates.get((trigger_type, preference.preferred_channel))
-        if template is None:
-            stats.failed += 1
+        active_nudge = db.scalar(
+            select(DispatchLog).where(
+                DispatchLog.agent_id == user.id,
+                DispatchLog.channel_type == preference.preferred_channel,
+                DispatchLog.status == "sent",
+                DispatchLog.opened_timestamp.is_(None),
+                DispatchLog.dedupe_key.like(f"{user.id}:%:{preference.preferred_channel}:{local_date}"),
+            )
+        )
+        if active_nudge:
+            stats.skipped_active_nudge += max(len(user_assignments) - 1, 1)
             continue
 
-        dedupe_key = _dispatch_dedupe_key(
-            agent_id=user.id,
-            assignment_id=assignment.id,
-            channel_type=preference.preferred_channel,
-            scheduled_date=local_now.strftime("%Y-%m-%d"),
-        )
-        existing = db.scalar(select(DispatchLog).where(DispatchLog.dedupe_key == dedupe_key))
-        if existing:
-            stats.skipped_duplicate += 1
+        selected_assignment = None
+        selected_template = None
+        selected_dedupe_key = None
+
+        for candidate in user_assignments:
+            trigger_type = "spaced_repetition_due" if candidate.task_type == "memory_recall" else "bio_rhythm_peak"
+            template = templates.get((trigger_type, preference.preferred_channel))
+            if template is None:
+                stats.failed += 1
+                continue
+
+            dedupe_key = _dispatch_dedupe_key(
+                agent_id=user.id,
+                assignment_id=candidate.id,
+                channel_type=preference.preferred_channel,
+                scheduled_date=local_date,
+            )
+            existing = db.scalar(select(DispatchLog).where(DispatchLog.dedupe_key == dedupe_key))
+            if existing:
+                stats.skipped_duplicate += 1
+                continue
+
+            selected_assignment = candidate
+            selected_template = template
+            selected_dedupe_key = dedupe_key
+            break
+
+        if selected_assignment is None or selected_template is None or selected_dedupe_key is None:
             continue
 
         dispatch = orchestrator.create_dispatch_log(
             user=user,
             preference=preference,
-            assignment=assignment,
-            template=template,
+            assignment=selected_assignment,
+            template=selected_template,
             scheduled_dispatch_time=current,
-            dedupe_key=dedupe_key,
+            dedupe_key=selected_dedupe_key,
         )
         stats.queued += 1
         result = orchestrator.send_dispatch(dispatch)

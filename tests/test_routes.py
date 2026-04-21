@@ -33,6 +33,7 @@ from app.main import create_app
 from app.schemas.admin import SchedulerRunResponse
 from app.services.dispatch import DispatchResult
 from app.services.line_link_service import generate_link_code
+from app.services import scheduler as scheduler_module
 from app.services.scheduler import SchedulerStats
 from app.services.channels import line as line_channel_module
 from app.services.channels import web_push as web_push_module
@@ -316,6 +317,7 @@ class SchedulerAndAdminRoutesTest(RouteTestCase):
                 skipped_opt_out=0,
                 skipped_dnd=0,
                 skipped_peak_window=0,
+                skipped_active_nudge=0,
                 skipped_duplicate=0,
             ),
         ):
@@ -330,6 +332,7 @@ class SchedulerAndAdminRoutesTest(RouteTestCase):
             skipped_opt_out=0,
             skipped_dnd=0,
             skipped_peak_window=0,
+            skipped_active_nudge=0,
             skipped_duplicate=0,
         ).model_dump(mode="json"))
 
@@ -384,6 +387,69 @@ class SchedulerAndAdminRoutesTest(RouteTestCase):
         self.assertIn("Successful conversion tracking", response.text)
         self.assertIn("Open rate", response.text)
         self.assertIn("Lin Agent", response.text)
+
+    def test_scheduler_sends_only_one_active_nudge_per_agent_until_opened(self):
+        agent = self.create_user(email="agent4@example.com", password="secret123", role="agent", name="Lin Agent")
+        self.create_preference(agent_id=agent.id, preferred_channel="PUSH", peak_learning_time="09:00")
+        first_assignment = self.create_assignment(
+            user_id=agent.id,
+            module_title="Travel Insurance",
+            task_type="mandatory_module",
+            due_at=datetime(2026, 4, 21, 0, 40, tzinfo=timezone.utc),
+        )
+        second_assignment = self.create_assignment(
+            user_id=agent.id,
+            module_title="Recall Quiz",
+            task_type="memory_recall",
+            due_at=datetime(2026, 4, 21, 0, 45, tzinfo=timezone.utc),
+        )
+        self.create_template(channel_type="PUSH", trigger_type="bio_rhythm_peak", title_template="Mandatory")
+        self.create_template(channel_type="PUSH", trigger_type="spaced_repetition_due", title_template="Recall")
+
+        with self.SessionLocal() as db, patch.object(
+            scheduler_module.DispatchOrchestrator,
+            "send_dispatch",
+            return_value=DispatchResult(status="sent"),
+        ):
+            first_stats = scheduler_module.run_scheduler(db, datetime(2026, 4, 21, 0, 50, tzinfo=timezone.utc))
+
+        self.assertEqual(first_stats.sent, 1)
+        self.assertEqual(first_stats.queued, 1)
+
+        with self.SessionLocal() as db:
+            dispatches = list(db.scalars(select(DispatchLog).order_by(DispatchLog.dispatch_id.asc())))
+            self.assertEqual(len(dispatches), 1)
+            self.assertEqual(dispatches[0].learning_assignment_id, first_assignment.id)
+
+        with self.SessionLocal() as db, patch.object(
+            scheduler_module.DispatchOrchestrator,
+            "send_dispatch",
+            return_value=DispatchResult(status="sent"),
+        ):
+            second_stats = scheduler_module.run_scheduler(db, datetime(2026, 4, 21, 0, 51, tzinfo=timezone.utc))
+
+        self.assertEqual(second_stats.sent, 0)
+        self.assertGreaterEqual(second_stats.skipped_active_nudge, 1)
+
+        with self.SessionLocal() as db:
+            first_dispatch = db.scalar(select(DispatchLog).where(DispatchLog.learning_assignment_id == first_assignment.id))
+            first_dispatch.opened_timestamp = datetime.now(timezone.utc)
+            db.add(first_dispatch)
+            db.commit()
+
+        with self.SessionLocal() as db, patch.object(
+            scheduler_module.DispatchOrchestrator,
+            "send_dispatch",
+            return_value=DispatchResult(status="sent"),
+        ):
+            third_stats = scheduler_module.run_scheduler(db, datetime(2026, 4, 21, 0, 52, tzinfo=timezone.utc))
+
+        self.assertEqual(third_stats.sent, 1)
+
+        with self.SessionLocal() as db:
+            dispatches = list(db.scalars(select(DispatchLog).order_by(DispatchLog.dispatch_id.asc())))
+            self.assertEqual(len(dispatches), 2)
+            self.assertEqual(dispatches[1].learning_assignment_id, second_assignment.id)
 
 
 class TrackingAndWebhookRoutesTest(RouteTestCase):
