@@ -341,8 +341,8 @@ def line_connect(request: Request, db: Session = Depends(get_db)):
             "page_title": "LINE Connect",
             "line": {
                 "official_account_url": settings.line_official_account_url,
-                "link_code": active_request.link_code,
-                "expires_at": active_request.expires_at,
+                "link_code": active_request.link_code if active_request else None,
+                "expires_at": active_request.expires_at if active_request else None,
             },
         },
     )

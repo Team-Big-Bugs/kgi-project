@@ -135,6 +135,7 @@ def run_scheduler(db: Session, now_utc: datetime | None = None) -> SchedulerStat
         selected_assignment = None
         selected_template = None
         selected_dedupe_key = None
+        retry_dispatch = None
 
         for candidate in user_assignments:
             trigger_type = "spaced_repetition_due" if candidate.task_type == "memory_recall" else "bio_rhythm_peak"
@@ -150,26 +151,34 @@ def run_scheduler(db: Session, now_utc: datetime | None = None) -> SchedulerStat
                 scheduled_date=local_date,
             )
             existing = db.scalar(select(DispatchLog).where(DispatchLog.dedupe_key == dedupe_key))
-            if existing:
+            if existing and existing.status in {"queued", "sent"}:
                 stats.skipped_duplicate += 1
                 continue
 
             selected_assignment = candidate
             selected_template = template
             selected_dedupe_key = dedupe_key
+            retry_dispatch = existing if existing and existing.status == "failed" else None
             break
 
         if selected_assignment is None or selected_template is None or selected_dedupe_key is None:
             continue
 
-        dispatch = orchestrator.create_dispatch_log(
-            user=user,
-            preference=preference,
-            assignment=selected_assignment,
-            template=selected_template,
-            scheduled_dispatch_time=current,
-            dedupe_key=selected_dedupe_key,
-        )
+        if retry_dispatch is not None:
+            dispatch = retry_dispatch
+            dispatch.status = "queued"
+            dispatch.failure_reason = None
+            dispatch.scheduled_dispatch_time = current
+            db.add(dispatch)
+        else:
+            dispatch = orchestrator.create_dispatch_log(
+                user=user,
+                preference=preference,
+                assignment=selected_assignment,
+                template=selected_template,
+                scheduled_dispatch_time=current,
+                dedupe_key=selected_dedupe_key,
+            )
         stats.queued += 1
         result = orchestrator.send_dispatch(dispatch)
         dispatch.status = result.status

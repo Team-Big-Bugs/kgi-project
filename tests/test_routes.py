@@ -159,17 +159,19 @@ class RouteTestCase(unittest.TestCase):
         template_id: int,
         tracking_token: str = "token-123",
         status: str = "sent",
+        channel_type: str = "EMAIL",
+        dedupe_key: str | None = None,
     ) -> DispatchLog:
         with self.SessionLocal() as db:
             dispatch = DispatchLog(
                 agent_id=agent_id,
                 learning_assignment_id=assignment_id,
                 template_id=template_id,
-                channel_type="EMAIL",
+                channel_type=channel_type,
                 scheduled_dispatch_time=datetime.now(timezone.utc),
                 status=status,
                 tracking_token=tracking_token,
-                dedupe_key=f"dedupe-{tracking_token}",
+                dedupe_key=dedupe_key or f"dedupe-{tracking_token}",
             )
             db.add(dispatch)
             db.commit()
@@ -451,6 +453,48 @@ class SchedulerAndAdminRoutesTest(RouteTestCase):
             self.assertEqual(len(dispatches), 2)
             self.assertEqual(dispatches[1].learning_assignment_id, second_assignment.id)
 
+    def test_scheduler_retries_after_failed_duplicate_for_same_day(self):
+        agent = self.create_user(email="agent5@example.com", password="secret123", role="agent", name="Retry Agent")
+        self.create_preference(agent_id=agent.id, preferred_channel="LINE", peak_learning_time="09:00")
+        assignment = self.create_assignment(
+            user_id=agent.id,
+            module_title="Retry Line Assignment",
+            task_type="mandatory_module",
+            due_at=datetime(2026, 4, 21, 0, 40, tzinfo=timezone.utc),
+        )
+        template = self.create_template(channel_type="LINE", trigger_type="bio_rhythm_peak", title_template="Retry")
+        self.create_dispatch(
+            agent_id=agent.id,
+            assignment_id=assignment.id,
+            template_id=template.template_id,
+            tracking_token="failed-token",
+            status="failed",
+            channel_type="LINE",
+            dedupe_key=f"{agent.id}:{assignment.id}:LINE:2026-04-21",
+        )
+
+        with self.SessionLocal() as db, patch.object(
+            scheduler_module.DispatchOrchestrator,
+            "send_dispatch",
+            return_value=DispatchResult(status="sent"),
+        ):
+            stats = scheduler_module.run_scheduler(db, datetime(2026, 4, 21, 0, 50, tzinfo=timezone.utc))
+
+        self.assertEqual(stats.sent, 1)
+        self.assertEqual(stats.skipped_duplicate, 0)
+
+        with self.SessionLocal() as db:
+            dispatches = list(
+                db.scalars(
+                    select(DispatchLog)
+                    .where(DispatchLog.learning_assignment_id == assignment.id)
+                    .order_by(DispatchLog.dispatch_id.asc())
+                )
+            )
+            self.assertEqual(len(dispatches), 1)
+            self.assertEqual(dispatches[0].status, "sent")
+            self.assertIsNone(dispatches[0].failure_reason)
+
 
 class TrackingAndWebhookRoutesTest(RouteTestCase):
     def test_preferences_page_handles_naive_line_link_expiry(self):
@@ -491,6 +535,23 @@ class TrackingAndWebhookRoutesTest(RouteTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("data:image/png;base64", response.text)
         self.assertIn("LINK-", response.text)
+
+    def test_line_connect_page_renders_for_already_linked_user_without_pending_code(self):
+        user = self.create_user(email="line-linked@example.com", password="secret123", role="agent", name="Linked User")
+        self.create_preference(agent_id=user.id, preferred_channel="LINE")
+
+        with self.SessionLocal() as db:
+            refreshed_user = db.get(User, user.id)
+            refreshed_user.line_user_id = "U123456789ABCDE"
+            db.add(refreshed_user)
+            db.commit()
+
+        self.client.post("/auth/login", json={"email": user.email, "password": "secret123"})
+
+        response = self.client.get("/preferences/line/connect")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("LINE account connected", response.text)
 
     def test_tracking_marks_dispatch_opened_and_redirects(self):
         user = self.create_user(email="track@example.com", password="secret123", role="agent", name="Track User")
