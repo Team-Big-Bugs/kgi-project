@@ -16,6 +16,7 @@ logger = get_logger(__name__)
 
 class LineSender:
     api_url = "https://api.line.me/v2/bot/message/push"
+    reply_api_url = "https://api.line.me/v2/bot/message/reply"
 
     def send(self, *, user: User, title: str, body: str, tracking_url: str) -> None:
         settings = get_settings()
@@ -30,25 +31,59 @@ class LineSender:
             tracking_url=tracking_url,
             app_base_url=settings.app_base_url,
         )
-        headers = {
-            "Authorization": f"Bearer {settings.line_channel_access_token}",
-            "Content-Type": "application/json",
-        }
         payload = {
             "to": user.line_user_id,
             "messages": [{"type": "text", "text": message_text[:5000]}],
         }
+        self._post_message(
+            self.api_url,
+            payload,
+            access_token=settings.line_channel_access_token,
+            user_id=user.id,
+        )
+
+    def reply_text(self, *, reply_token: str, text: str) -> None:
+        settings = get_settings()
+        if not settings.line_channel_access_token:
+            raise RuntimeError("LINE access token is not configured")
+        if not reply_token.strip():
+            raise ValueError("LINE reply token is missing")
+
+        payload = {
+            "replyToken": reply_token,
+            "messages": [{"type": "text", "text": text[:5000]}],
+        }
+        self._post_message(self.reply_api_url, payload, access_token=settings.line_channel_access_token)
+
+    def _post_message(
+        self,
+        url: str,
+        payload: dict,
+        *,
+        access_token: str,
+        user_id: int | None = None,
+    ) -> None:
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
 
         try:
             with httpx.Client(timeout=10.0) as client:
-                response = client.post(self.api_url, headers=headers, json=payload)
+                response = client.post(url, headers=headers, json=payload)
                 response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             detail = self._format_http_error(exc.response)
-            logger.exception("LINE dispatch rejected for user_id=%s", user.id)
+            if user_id is not None:
+                logger.exception("LINE dispatch rejected for user_id=%s", user_id)
+            else:
+                logger.exception("LINE reply rejected")
             raise RuntimeError(f"LINE dispatch failed: {detail}") from exc
         except httpx.RequestError as exc:  # pragma: no cover - external integration failure
-            logger.exception("LINE dispatch request error for user_id=%s", user.id)
+            if user_id is not None:
+                logger.exception("LINE dispatch request error for user_id=%s", user_id)
+            else:
+                logger.exception("LINE reply request error")
             raise RuntimeError(f"LINE dispatch failed: {exc}") from exc
 
     @staticmethod

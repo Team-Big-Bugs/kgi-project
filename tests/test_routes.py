@@ -331,6 +331,7 @@ class TrackingAndWebhookRoutesTest(RouteTestCase):
             "events": [
                 {
                     "type": "message",
+                    "replyToken": "reply-token-123",
                     "source": {"userId": "U123456789"},
                     "message": {"type": "text", "text": f"please link {link_code}"},
                 }
@@ -343,15 +344,12 @@ class TrackingAndWebhookRoutesTest(RouteTestCase):
             line_channel_module,
             "get_settings",
             return_value=SimpleNamespace(line_channel_secret=secret),
-        ):
-            response = self.client.post(
-                "/line/webhook",
-                content=body,
-                headers={"Content-Type": "application/json", "X-Line-Signature": signature},
-            )
+        ), patch.object(line_channel_module.LineSender, "reply_text", return_value=None) as mocked_reply:
+            response = self.client.post("/line/webhook", content=body, headers={"Content-Type": "application/json", "X-Line-Signature": signature})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["result"]["linked"], 1)
+        mocked_reply.assert_called_once()
 
         with self.SessionLocal() as db:
             refreshed_user = db.get(User, user.id)

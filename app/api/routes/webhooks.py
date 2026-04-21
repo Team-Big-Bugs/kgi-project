@@ -5,13 +5,15 @@ import json
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.db.session import get_db
 from app.schemas.webhooks import LineWebhookResponse
-from app.services.channels.line import verify_line_signature
+from app.services.channels.line import LineSender, verify_line_signature
 from app.services.line_link_service import extract_link_code_from_webhook_event, link_line_user
 
 
 router = APIRouter(prefix="/line", tags=["line"])
+logger = get_logger(__name__)
 
 
 @router.post("/webhook")
@@ -49,6 +51,19 @@ async def line_webhook(
         if user is None:
             ignored += 1
             continue
+
+        reply_token = event.get("replyToken")
+        if isinstance(reply_token, str) and reply_token.strip():
+            try:
+                LineSender().reply_text(
+                    reply_token=reply_token,
+                    text=(
+                        f"LINE connected successfully for {user.name}.\n"
+                        "You can go back to Smart Nudge and keep LINE as your preferred channel."
+                    ),
+                )
+            except Exception:
+                logger.exception("Failed to send LINE link confirmation reply for user_id=%s", user.id)
         linked += 1
 
     return {"ok": True, "result": LineWebhookResponse(processed=processed, linked=linked, ignored=ignored).model_dump(mode="json")}
